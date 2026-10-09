@@ -11,7 +11,7 @@ import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
 import { resolvePrompt, promptLocations } from './prompt.js';
 import { discoverSkills, setSkillEnabled, useSkill } from './skills.js';
-import { mcpStatus } from './mcp.js';
+import { mcpEnsure, stopAllMcp } from './mcp.js';
 import { toolDefs, getDisabledTools, setToolEnabled } from './tools/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -249,7 +249,12 @@ export function createRequestHandler() {
       if (req.method === 'GET' && p === '/api/tools') {
         const disabled = new Set(getDisabledTools());
         const tools = toolDefs.map((d) => ({ name: d.function.name, description: d.function.description, enabled: !disabled.has(d.function.name) }));
-        return sendJson(res, 200, { tools, mcp: mcpStatus() });
+        const ws = url.searchParams.get('workspace');
+        const mcp = await mcpEnsure(ws);
+        for (const t of mcp.tools) {
+          tools.push({ name: t.name, description: `[MCP ${t.server}] ${t.description}`, enabled: !disabled.has(t.name), server: t.server, readOnly: t.readOnly });
+        }
+        return sendJson(res, 200, { tools, mcp });
       }
       if (req.method === 'POST' && p === '/api/tools/enabled') {
         const body = await readBody(req);
@@ -364,6 +369,7 @@ export async function startServer({ port = 4848, host = '127.0.0.1', openBrowser
       new Promise((resolve) => {
         for (const turn of turnsMap.values()) if (!turn.finished) turn.stop();
         killAllJobs();
+        stopAllMcp();
         server.closeAllConnections?.();
         server.close(resolve);
       }),

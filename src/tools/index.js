@@ -5,6 +5,7 @@ import { globFiles } from './glob.js';
 import { shellJobs, killShell } from './jobs.js';
 import { todo } from './todo.js';
 import { useSkill } from '../skills.js';
+import { mcpToolDefs, runMcpTool } from '../mcp.js';
 import { getSetting, setSetting } from '../db.js';
 
 const string = { type: 'string' };
@@ -273,9 +274,23 @@ export function activeToolDefs(defs = toolDefs) {
   return defs.filter((d) => !disabled.has(d.function.name));
 }
 
+/** Core + MCP tool defs the model should see right now. */
+export async function activeToolList(workspace = null) {
+  let mcpDefs = [];
+  try {
+    mcpDefs = await mcpToolDefs(workspace);
+  } catch {
+    mcpDefs = [];
+  }
+  return [...activeToolDefs(), ...mcpDefs];
+}
+
 export async function runTool(name, ctx, args) {
   if (!isToolEnabled(name)) {
     return { ok: false, content: `Error: the "${name}" tool is disabled by the user. Ask them to enable it in Settings → Tools, and do not try to work around it.` };
+  }
+  if (String(name).startsWith('mcp__')) {
+    return runMcpTool(String(name), args ?? {});
   }
   const fn = impl.get(name);
   if (!fn) return { ok: false, content: `Error: unknown tool "${name}". Available tools: ${[...impl.keys()].join(', ')}.` };

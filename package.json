@@ -1,0 +1,17 @@
+{
+  "name": "forge",
+  "version": "1.0.0",
+  "description": "forge — a coding agent with a web UI, powered by any OpenAI-compatible LLM API. Zero dependencies.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "bin": {
+    "forge": "bin/forge.js"
+  },
+  "scripts": {
+    "start": "node bin/forge.js",
+    "test": "node --test"
+  }
+}

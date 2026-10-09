@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, saveConfig, publicConfig } from './config.js';
-import { getConversation, deleteConversation, listConversations, importWorkspace, loadMessages } from './db.js';
+import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback } from './db.js';
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -125,7 +125,11 @@ export function createRequestHandler() {
         const messages = loadMessages(id);
         const turn = getTurn(id);
         return sendJson(res, 200, {
-          session: { ...conv, messageCount: messages.filter((m) => m.role !== 'tool').length, messages: messages.map(({ __meta, ...m }) => m) },
+          session: {
+            ...conv,
+            messageCount: messages.filter((m) => m.role !== 'tool').length,
+            messages: messages.map(({ __meta, ...m }) => (m.role === 'assistant' ? { ...m, id: __meta.id, feedback: __meta.feedback } : m)),
+          },
           active: Boolean(turn && !turn.finished),
         });
       }
@@ -210,6 +214,15 @@ export function createRequestHandler() {
         return sendJson(res, 404, { error: 'no pending permission with that requestId' });
       }
 
+      if (req.method === 'POST' && p === '/api/feedback') {
+        const body = await readBody(req);
+        const id = Number(body.messageId);
+        if (!Number.isInteger(id)) return sendJson(res, 400, { error: 'messageId is required' });
+        const feedback = body.feedback === null ? null : ['up', 'down'].includes(body.feedback) ? body.feedback : null;
+        setFeedback(id, feedback);
+        return sendJson(res, 200, { ok: true });
+      }
+
       if (req.method === 'POST' && p === '/api/stop') {
         const body = await readBody(req);
         const turn = getTurn(body.sessionId);
@@ -256,6 +269,20 @@ export function createRequestHandler() {
         } finally {
           clearTimeout(timer);
         }
+      }
+
+      if (req.method === 'GET' && p === '/api/stats') {
+        const range = ['all', '30d', '7d'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : 'all';
+        // make sure any legacy sessions in known workspaces are present before counting
+        for (const w of listWorkspaces()) importWorkspace(w.workspace);
+        const stats = getStats({ range });
+        let user = 'there';
+        try {
+          user = os.userInfo().username || 'there';
+        } catch {
+          /* keep default */
+        }
+        return sendJson(res, 200, { ...stats, user });
       }
 
       return sendJson(res, 404, { error: `No route: ${req.method} ${p}` });

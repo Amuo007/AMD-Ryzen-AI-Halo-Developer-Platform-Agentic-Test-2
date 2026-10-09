@@ -1,4 +1,4 @@
-# wen3.8-next-flash-q3 — forge
+# qwen3.8-next-flash-q3 — forge
 
 **forge** is a coding agent with a web interface, in the spirit of the Claude Code desktop app.
 Run one command, a local server starts, your browser opens, and an LLM reads, edits and runs

@@ -308,3 +308,35 @@ test('tools tab: html structure + runtime list render', async () => {
     boot.done();
   }
 });
+
+test('reasoning control: select in composer, sent with chat, persisted choice', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="reasoning-select"/);
+  for (const v of ['auto', 'high', 'low', 'off']) assert.ok(html.includes(`value="${v}"`), `missing option ${v}`);
+  const app = pub('app.js');
+  assert.match(app, /reasoning: els\.reasoning\.value/);
+  assert.match(app, /forge-reasoning/);
+  assert.match(app, /session\.reasoning/);
+});
+
+test('runtime: reasoning renders a collapsible thought block with duration', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    app.api.renderEvent({ type: 'reasoning_delta', text: 'pondering this ' });
+    app.api.renderEvent({ type: 'reasoning_delta', text: 'and that' });
+    const t = app.api.state.thinkingEl;
+    assert.ok(t, 'thinking block created');
+    assert.equal(t.details.tagName, 'details');
+    assert.equal(t.details.open, true);
+    assert.match(t.body.textContent, /pondering this and that/);
+    // final answer collapses it with a duration
+    await new Promise((r) => setTimeout(r, 1100));
+    app.api.renderEvent({ type: 'text_delta', text: 'the answer' });
+    assert.equal(app.api.state.thinkingEl, null);
+    assert.match(t.label.textContent, /Thought for \d+s/);
+    assert.equal(t.details.open, false);
+  } finally {
+    app.done();
+  }
+});

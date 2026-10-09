@@ -466,8 +466,7 @@ test('GET /api/prompt: workspace override', async () => {
   assert.match(r.data.text, /WS PROMPT OVERRIDE/);
 });
 
-test('GET/POST /api/tools: list + toggle affects the model defs', async () => {
-  let r = await req('GET', '/api/tools');
+test('GET/POST /api/tools: list + toggle affects the model defs', async () => {  let r = await req('GET', '/api/tools');
   assert.equal(r.status, 200);
   assert.ok(r.data.tools.length >= 10);
   assert.ok(r.data.tools.every((t) => t.enabled === true));
@@ -494,4 +493,32 @@ test('GET/POST /api/tools: list + toggle affects the model defs', async () => {
   const sentTools = mock.requests[mock.requests.length - 1].tools.map((t) => t.function.name);
   assert.ok(!sentTools.includes('edit_file'), 'disabled tool not offered to the model');
   await req('POST', '/api/tools/enabled', { name: 'edit_file', enabled: true });
+});
+
+test('reasoning: per-conversation control reaches the API request', async () => {
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-reason-'));
+  mockHandler = (body) => {
+    assert.ok(body.chat_template_kwargs, 'chat_template_kwargs present for non-auto');
+    return { chunks: [...textChunks('thought done'), deltaChunk({}, 'stop')] };
+  };
+  const sessionId = 'apitest-reason-low';
+  let r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'think low', mode: 'full', reasoning: 'low' });
+  assert.equal(r.status, 202);
+  assert.equal(r.data.reasoning, 'low');
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  await sseCollect({ sessionId, until: untilEnd });
+  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { thinking: true });
+  assert.equal(mock.requests.at(-1).reasoning_effort, 'low');
+  const s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  assert.equal(s.data.session.reasoning, 'low');
+  // second message inherits the conversation setting
+  r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'again', mode: 'full' });
+  assert.equal(r.data.reasoning, 'low');
+  await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true) });
+  assert.equal(mock.requests.at(-1).reasoning_effort, 'low');
+  // switch off
+  r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'stop thinking', mode: 'full', reasoning: 'off' });
+  assert.equal(r.data.reasoning, 'off');
+  await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true) });
+  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { thinking: false });
 });

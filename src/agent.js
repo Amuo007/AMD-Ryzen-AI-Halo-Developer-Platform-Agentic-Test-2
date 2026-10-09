@@ -12,12 +12,13 @@ import { loadConfig } from './config.js';
 export const turns = new Map(); // sessionId -> active or last turn
 
 export class Turn {
-  constructor({ id, sessionId, workspace, mode, agentMode = 'code', maxSteps }) {
+  constructor({ id, sessionId, workspace, mode, agentMode = 'code', maxSteps, reasoning = 'auto' }) {
     this.id = id;
     this.sessionId = sessionId;
     this.workspace = workspace;
     this.mode = mode; // permission mode: ask | auto-edit | full
     this.agentMode = agentMode === 'chat' ? 'chat' : 'code'; // conversation kind
+    this.reasoning = ['high', 'low', 'off'].includes(reasoning) ? reasoning : 'auto';
     this.maxSteps = maxSteps;
     this.events = [];
     this.nextEventId = 1;
@@ -145,6 +146,7 @@ export async function runTurn(turn, userMessage) {
         model: config.model,
         messages: context,
         tools: isChat ? undefined : await activeToolList(turn.workspace),
+        reasoning: turn.reasoning,
         signal,
         onText: (t) => turn.emit({ type: 'text_delta', text: t }),
         onReasoning: (t) => turn.emit({ type: 'reasoning_delta', text: t }),
@@ -236,7 +238,7 @@ export async function runTurn(turn, userMessage) {
   }
 }
 
-export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code' }) {
+export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code', reasoning }) {
   if (turns.has(String(sessionId))) {
     const existing = turns.get(String(sessionId));
     if (!existing.finished) throw Object.assign(new Error('A turn is already running for this session'), { status: 409 });
@@ -246,7 +248,8 @@ export async function startTurn({ sessionId, workspace, message, mode, agentMode
   const stored = getConversation(sessionId);
   const convMode = stored ? stored.mode : agentMode === 'chat' ? 'chat' : 'code';
   const isChat = convMode === 'chat';
-  ensureConversation(sessionId, { workspace: isChat ? null : workspace, mode: convMode });
+  const convReasoning = reasoning && ['auto', 'high', 'low', 'off'].includes(reasoning) ? reasoning : stored?.reasoning ?? 'auto';
+  ensureConversation(sessionId, { workspace: isChat ? null : workspace, mode: convMode, reasoning: convReasoning });
   const turn = new Turn({
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     sessionId: String(sessionId),
@@ -254,6 +257,7 @@ export async function startTurn({ sessionId, workspace, message, mode, agentMode
     mode: mode ?? 'ask',
     agentMode: convMode,
     maxSteps: isChat ? 1 : config.maxSteps,
+    reasoning: convReasoning,
   });
   turns.set(turn.sessionId, turn);
   // run detached

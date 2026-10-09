@@ -444,3 +444,24 @@ test('reconnect replays missed events (Last-Event-ID)', async () => {
   const firstReplayed = replayed[0].__id;
   assert.ok(firstReplayed > lastId, `first replayed id ${firstReplayed} should be after ${lastId}`);
 });
+
+test('GET /api/prompt: default source + text, locations listed', async () => {
+  const r = await req('GET', '/api/prompt?mode=code');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.source, 'default');
+  assert.match(r.data.text, /forge/);
+  assert.match(r.data.locations.default, /prompt$/);
+  const c = await req('GET', '/api/prompt?mode=chat');
+  assert.equal(c.data.source, 'default');
+  assert.match(c.data.text, /Chat mode/);
+});
+
+test('GET /api/prompt: workspace override', async () => {
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-prompt-ws-'));
+  await fsp.mkdir(path.join(ws, '.forge'), { recursive: true });
+  await fsp.writeFile(path.join(ws, '.forge', 'system.md'), 'WS PROMPT OVERRIDE');
+  const r = await req('GET', `/api/prompt?workspace=${encodeURIComponent(ws)}`);
+  assert.equal(r.status, 200);
+  assert.equal(r.data.source, 'workspace');
+  assert.match(r.data.text, /WS PROMPT OVERRIDE/);
+});

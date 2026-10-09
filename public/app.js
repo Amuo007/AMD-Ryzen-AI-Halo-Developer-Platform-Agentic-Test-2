@@ -972,6 +972,35 @@ async function browse(path) {
 
 /* ---------------- settings ---------------- */
 
+function openSettingsTab(name) {
+  state.settingsTab = name;
+  for (const btn of document.querySelectorAll('.settings-tab')) btn.classList.toggle('active', btn.getAttribute('data-tab') === name);
+  for (const panel of document.querySelectorAll('.settings-panel')) panel.classList.toggle('hidden', panel.getAttribute('data-panel') !== name);
+  if (name === 'prompt') renderPromptTab();
+  if (name === 'tools') renderToolsTab();
+  if (name === 'skills') renderSkillsTab();
+  if (name === 'context') renderContextSettingsTab();
+}
+
+function renderToolsTab() {}
+function renderSkillsTab() {}
+function renderContextSettingsTab() {}
+
+async function renderPromptTab() {
+  const modeEl = $('#prompt-mode');
+  const mode = modeEl ? modeEl.value : 'code';
+  const src = $('#prompt-source');
+  const preview = $('#prompt-preview');
+  try {
+    const ws = state.agentMode === 'code' || mode === 'code' ? els.workspace.value.trim() : '';
+    const data = await api('GET', `/api/prompt?mode=${mode}${ws ? `&workspace=${encodeURIComponent(ws)}` : ''}`);
+    if (src) src.textContent = `source: ${data.source}${data.path ? ` — ${data.path}` : ''}`;
+    if (preview) preview.textContent = data.text || '(empty)';
+  } catch (err) {
+    if (src) src.textContent = `failed to load: ${err.message}`;
+  }
+}
+
 async function openSettings() {
   const cfg = await api('GET', '/api/config');
   $('#set-baseurl').value = cfg.baseURL;
@@ -981,6 +1010,7 @@ async function openSettings() {
   $('#set-apikey').value = '';
   $('#set-apikey-hint').textContent = cfg.hasApiKey ? `current: ${cfg.apiKeyMasked} (leave empty to keep)` : 'no key set';
   $('#settings-msg').textContent = '';
+  openSettingsTab('general');
   els.settingsModal.showModal();
 }
 async function saveSettings(e) {
@@ -1042,6 +1072,9 @@ async function init() {
   els.newChat.addEventListener('click', newChat);
   els.settingsBtn.addEventListener('click', openSettings);
   els.settingsForm.addEventListener('submit', saveSettings);
+  for (const btn of document.querySelectorAll('.settings-tab')) btn.addEventListener('click', () => openSettingsTab(btn.getAttribute('data-tab')));
+  $('#settings-close').addEventListener('click', () => els.settingsModal.close());
+  $('#prompt-mode').addEventListener('change', () => renderPromptTab());
   els.modeChatBtn.addEventListener('click', () => setAgentMode('chat'));
   els.modeCodeBtn.addEventListener('click', () => setAgentMode('code'));
   els.search.addEventListener('input', () => loadSessions());
@@ -1117,4 +1150,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, els, renderEvent, send, newChat, openSession, setMascotState, mascot };
+globalThis.__forge = { state, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos };

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { resolvePrompt, globalAppend } from './prompt.js';
 
 export const AGENTS_MD_CAP = 32_000; // chars of AGENTS.md injected
 
@@ -18,33 +19,29 @@ export async function loadAgentsMd(workspace) {
   }
 }
 
-export function buildSystemPrompt({ workspace, agentsMd }) {
-  const parts = [
-    'You are forge, an autonomous coding agent. You accomplish the user\'s task by calling tools: ' +
-      'read_file, write_file, edit_file, list_dir, search, run_shell.',
-    `Your workspace is the directory ${workspace}. All file paths are relative to it. Never touch files outside it.`,
-    'Rules of engagement:',
-    '- Prefer tools over guessing. Read files before editing them.',
-    '- When you edit, copy old_string verbatim from read_file output.',
-    '- Verify your work: run tests or the program when applicable.',
-    '- When the task is complete, stop calling tools and write a short final summary of what you did.',
-  ];
-  if (agentsMd) {
-    parts.push('', '## Project instructions (AGENTS.md)', agentsMd);
-  }
-  return parts.join('\n');
+/**
+ * System prompt for Code mode. The base comes from prompt files (see
+ * src/prompt.js — workspace > global > repo default), then the optional
+ * global append, AGENTS.md project instructions, and an available-skills
+ * section are added.
+ */
+export async function buildSystemPrompt({ workspace, agentsMd, skillsSection = null }) {
+  const base = await resolvePrompt({ mode: 'code', workspace });
+  const parts = [base.text, `Your workspace is the directory ${workspace}. All file paths are relative to it. Never touch files outside it.`];
+  const append = await globalAppend();
+  if (append) parts.push('', '## Global instructions (append.md)', append);
+  if (skillsSection) parts.push('', skillsSection);
+  if (agentsMd) parts.push('', '## Project instructions (AGENTS.md)', agentsMd);
+  return parts.filter((p) => p !== null && p !== '').join('\n');
 }
 
 /**
- * System prompt for Chat mode: a pure conversation with the model — no workspace,
- * no tools, no file access. The model is told its limits so it does not pretend
- * to have performed actions.
+ * System prompt for Chat mode: a pure conversation with the model — no
+ * workspace, no tools, no file access.
  */
-export function buildChatSystemPrompt() {
-  return [
-    'You are forge, a helpful conversational assistant.',
-    'You are in Chat mode: you have no access to files, folders or a shell, and you cannot run any tools.',
-    'Answer the user directly, clearly and concisely. Use GitHub-flavoured markdown when it helps readability.',
-    'Never claim to have read a file or run a command. If the user needs coding work inside a project, suggest they switch to Code mode.',
-  ].join('\n');
+export async function buildChatSystemPrompt() {
+  const base = await resolvePrompt({ mode: 'chat' });
+  const append = await globalAppend();
+  if (append) return `${base.text}\n\n## Global instructions (append.md)\n${append}`;
+  return base.text;
 }

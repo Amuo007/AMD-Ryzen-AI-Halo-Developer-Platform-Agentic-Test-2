@@ -59,6 +59,7 @@ const DEFAULT_ROUTES = [
   ['/api/llm-status', { ok: true, status: 200 }],
   ['/api/stats', { user: 'amrinder', sessions: 0, messages: 0, totalTokens: 0, activeDays: 0, peakHour: null, favoriteModel: null, models: [], heatmap: [] }],
   ['/api/sessions', { sessions: [] }],
+  ['/api/prompt', { mode: 'code', source: 'default', path: '/repo/prompt/system.md', text: '# forge — Code mode system prompt\n\nYou are forge.', locations: { default: '/repo/prompt', global: '/home/.forge', workspace: '/ws/.forge' } }],
 ];
 
 export async function bootApp({ storage = {}, fetchStub } = {}) {
@@ -74,6 +75,9 @@ export async function bootApp({ storage = {}, fetchStub } = {}) {
     querySelector(sel) {
       if (!els.has(sel)) els.set(sel, new StubEl('div'));
       return els.get(sel);
+    },
+    querySelectorAll() {
+      return [];
     },
     createElement: (tag) => new StubEl(tag),
     addEventListener() {},

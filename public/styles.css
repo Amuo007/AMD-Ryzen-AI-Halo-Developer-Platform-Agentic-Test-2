@@ -211,6 +211,9 @@ pre.result, pre.args {
   flex-wrap: wrap;
 }
 #status-model { color: var(--text); }
+#status-llm.llm-ok { color: var(--ok); }
+#status-llm.llm-bad { color: var(--danger); }
+#status-llm.llm-unknown { color: var(--text-dim); }
 #status-error.error { color: var(--danger); }
 #mode-wrap select { padding: 2px 6px; font-size: 12.5px; margin-left: 6px; }
 #composer {

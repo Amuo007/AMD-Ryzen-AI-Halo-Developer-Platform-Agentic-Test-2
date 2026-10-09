@@ -261,6 +261,31 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 .stop-btn { background: var(--danger); }
 .composer-note { text-align: center; font-size: 11.5px; color: var(--text-faint); margin: 10px 0 0; }
 
+/* ================= todo panel ================= */
+.todo-panel {
+  width: 100%; max-width: 760px; margin: 0 auto; padding: 0 24px;
+}
+.todo-panel .todo-head {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px 6px;
+  background: var(--bg-card); border: 1px solid var(--border); border-bottom: none;
+  border-radius: 12px 12px 0 0; font-size: 12px;
+}
+.todo-panel .todo-head .t { font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; color: var(--text-dim); font-size: 11px; flex: 1; }
+.todo-panel .todo-head .n { font-family: var(--mono); color: var(--text-dim); font-size: 12px; }
+.todo-list {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 0 0 12px 12px;
+  padding: 6px 14px 10px; display: flex; flex-direction: column; gap: 4px;
+  max-height: 180px; overflow-y: auto; scrollbar-width: thin;
+}
+.todo-item { display: flex; gap: 9px; align-items: baseline; font-size: 13.5px; line-height: 1.5; }
+.todo-item .todo-ico { width: 15px; flex: none; text-align: center; }
+.todo-item.pending .todo-ico { color: var(--text-faint); }
+.todo-item.in_progress { color: var(--accent); }
+.todo-item.in_progress .todo-ico { animation: todo-spin 1.6s linear infinite; display: inline-block; }
+@keyframes todo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.todo-item.completed .todo-ico { color: var(--ok); }
+.todo-item.completed .todo-text { color: var(--text-faint); text-decoration: line-through; }
+
 /* ================= mascot ================= */
 .composer-row { display: flex; gap: 12px; align-items: flex-end; }
 .composer-main { flex: 1; min-width: 0; }

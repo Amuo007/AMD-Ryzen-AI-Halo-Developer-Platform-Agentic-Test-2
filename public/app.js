@@ -40,6 +40,7 @@ const els = {
   browseClose: $('#browse-close'),
   browseChoose: $('#browse-choose'),
   mascot: $('#mascot'),
+  todoPanel: $('#todo-panel'),
 };
 
 const SVG = {
@@ -519,6 +520,9 @@ function renderEvent(ev) {
       state.lastUsage = ev.total;
       renderUsage();
       break;
+    case 'todo_update':
+      renderTodos(ev.todos);
+      break;
     case 'retry':
       setStatusError(`LLM hiccup (${ev.attempt}): ${ev.error} — retrying…`);
       break;
@@ -560,6 +564,34 @@ function renderUsage() {
   }
   els.tokens.classList.remove('hidden');
   els.tokens.textContent = `${u.promptTokens}↑ ${u.completionTokens}↓ ${u.totalTokens} Σ`;
+}
+
+/* ---------------- todo panel ---------------- */
+
+function renderTodos(todos) {
+  const panel = els.todoPanel;
+  if (!panel) return;
+  panel.innerHTML = '';
+  if (!todos || !todos.length) {
+    panel.classList.add('hidden');
+    return;
+  }
+  panel.classList.remove('hidden');
+  const done = todos.filter((t) => t.status === 'completed').length;
+  panel.appendChild(
+    el('div', { class: 'todo-head' }, [
+      el('span', { class: 't', text: 'Tasks' }),
+      el('span', { class: 'n', text: `${done}/${todos.length}` }),
+    ])
+  );
+  const list = el('div', { class: 'todo-list' });
+  for (const t of todos) {
+    const icon = t.status === 'completed' ? '✓' : t.status === 'in_progress' ? '◐' : '○';
+    list.appendChild(
+      el('div', { class: `todo-item ${t.status}` }, [el('span', { class: 'todo-ico', text: icon }), el('span', { class: 'todo-text', text: t.content })])
+    );
+  }
+  panel.appendChild(list);
 }
 
 /* ---------------- welcome screens ---------------- */
@@ -761,6 +793,7 @@ async function openSession(id) {
   if (session.workspace) els.workspace.value = session.workspace;
   localStorage.setItem('forge-last-session-' + (session.workspace || 'chat'), id);
   clearMessages();
+  renderTodos(session.todos);
   for (const m of session.messages) {
     if (m.role === 'user') appendUser(m.content);
     else if (m.role === 'assistant') {
@@ -891,6 +924,7 @@ function newChat() {
   setRunning(false);
   setMascotState('idle');
   clearMessages();
+  renderTodos([]);
   renderWelcome();
   updateTopbar();
   els.input.focus();

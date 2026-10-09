@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { startJob } from './jobs.js';
 
 export const OUTPUT_CAP = 64_000; // chars captured per stream
 export const DEFAULT_TIMEOUT_MS = 30_000;
@@ -9,11 +10,25 @@ export const MAX_TIMEOUT_MS = 300_000;
  * - runs through `bash -c` in the workspace directory
  * - killed (whole process group) on timeout or when ctx.signal aborts
  * - returns exit code, stdout, stderr; huge output is truncated
+ * - `background: true` → start a job that keeps running; returns its job id
  */
 export function runShell({ workspace, signal }, args = {}) {
   return new Promise((resolve) => {
     if (typeof args.command !== 'string' || args.command.length === 0) {
       resolve({ ok: false, content: 'Error: command must be a non-empty string.' });
+      return;
+    }
+    if (args.background === true) {
+      const r = startJob({ workspace, command: args.command });
+      if (!r.ok) {
+        resolve(r);
+        return;
+      }
+      resolve({
+        ok: true,
+        content: `Started background job ${r.id} (pid ${r.pid}). It keeps running after this turn. Read output later with shell_jobs { job_id: "${r.id}" }, stop it with kill_shell { job_id: "${r.id}" }.`,
+        jobId: r.id,
+      });
       return;
     }
     const timeout = Math.min(Math.max(Number(args.timeout_ms) || DEFAULT_TIMEOUT_MS, 1000), MAX_TIMEOUT_MS);

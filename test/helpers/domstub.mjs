@@ -13,7 +13,18 @@ class StubEl {
     this.classList = { toggle() {}, add() {}, remove() {}, contains() { return false; } };
     this.className = '';
     this.textContent = '';
-    this.innerHTML = '';
+    this.__html = '';
+    // innerHTML = '' must clear children like the real DOM (assignment to
+    // non-empty strings just stores the string; tests inspect via texts())
+    Object.defineProperty(this, 'innerHTML', {
+      get() {
+        return this.__html;
+      },
+      set(v) {
+        this.__html = String(v);
+        if (v === '') this.children = [];
+      },
+    });
     this.value = '';
     this.placeholder = '';
     this.scrollTop = 0;

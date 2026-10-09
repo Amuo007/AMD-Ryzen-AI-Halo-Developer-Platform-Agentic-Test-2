@@ -73,40 +73,63 @@ export async function writeFile({ workspace }, args = {}) {
 }
 
 export async function editFile({ workspace }, args = {}) {
-  if (typeof args.old_string !== 'string' || typeof args.new_string !== 'string') {
-    return fail('Error: old_string and new_string must be strings.');
-  }
   let abs;
   try {
     abs = assertInWorkspace(workspace, args.path);
   } catch (err) {
     return fail(`Error: ${err.message}`);
   }
+  // Multiple edits in one call: edits: [{old_string, new_string, all?}, ...]
+  // applied in order, written once. Single old_string/new_string still work.
+  let editList;
+  if (Array.isArray(args.edits)) {
+    if (args.edits.length === 0) return fail('Error: edits array is empty.');
+    if (args.edits.length > 50) return fail('Error: at most 50 edits per call.');
+    editList = args.edits;
+  } else {
+    if (typeof args.old_string !== 'string' || typeof args.new_string !== 'string') {
+      return fail('Error: provide old_string + new_string, or an edits array of {old_string, new_string, all?} objects.');
+    }
+    editList = [{ old_string: args.old_string, new_string: args.new_string, all: args.all }];
+  }
+  if (fssync.existsSync(abs)) {
+    const st = await fs.stat(abs);
+    if (st.isDirectory()) return fail(`Error: ${args.path} is a directory, not a file.`);
+  }
   let content;
   try {
     content = await fs.readFile(abs, 'utf8');
   } catch {
-    return fail(`Error: file not found: ${args.path}`);
+    return fail(`Error: file not found: ${args.path}. Read the file first; use write_file to create a new file.`);
   }
-  if (args.old_string === args.new_string) return fail('Error: old_string and new_string are identical; nothing to do.');
-  const matches = content.split(args.old_string).length - 1;
-  if (matches === 0) {
-    return fail(
-      `Error: old_string not found in ${args.path}. Read the file first and copy the exact text (including indentation and newlines).`
-    );
+  let updated = content;
+  let totalReplaced = 0;
+  for (let i = 0; i < editList.length; i++) {
+    const e = editList[i] ?? {};
+    if (typeof e.old_string !== 'string' || typeof e.new_string !== 'string') {
+      return fail(`Error: edit #${i + 1} must have string old_string and new_string.`);
+    }
+    if (e.old_string === e.new_string) return fail(`Error: edit #${i + 1}: old_string and new_string are identical; nothing to do.`);
+    const matches = updated.split(e.old_string).length - 1;
+    if (matches === 0) {
+      return fail(
+        `Error: edit #${i + 1} old_string not found in ${args.path}. Read the file first and copy the exact text (including indentation and newlines). Edits are applied in order against the file as it stands after earlier edits.`
+      );
+    }
+    if (matches > 1 && e.all !== true) {
+      return fail(
+        `Error: edit #${i + 1} old_string matches ${matches} times in ${args.path}; not unique. Include more surrounding context, or set all=true to replace every occurrence.`
+      );
+    }
+    updated = updated.split(e.old_string).join(e.new_string);
+    totalReplaced += matches;
   }
-  if (matches > 1 && args.all !== true) {
-    return fail(
-      `Error: old_string matches ${matches} times in ${args.path}; not unique. Include more surrounding context, or set all=true to replace every occurrence.`
-    );
-  }
-  const updated = content.split(args.old_string).join(args.new_string);
   await fs.writeFile(abs, updated, 'utf8');
   return {
     ok: true,
-    content: `Edited ${args.path} (${matches} occurrence${matches > 1 ? 's' : ''} replaced).`,
+    content: `Edited ${args.path} (${editList.length} edit${editList.length > 1 ? 's' : ''}, ${totalReplaced} occurrence${totalReplaced > 1 ? 's' : ''} replaced).`,
     diff: diffLines(content, updated),
-    occurrences: matches,
+    occurrences: totalReplaced,
   };
 }
 

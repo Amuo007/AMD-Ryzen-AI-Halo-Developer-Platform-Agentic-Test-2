@@ -205,7 +205,7 @@ export async function runTurn(turn, userMessage) {
             }
           }
           if (status !== 'denied') {
-            const toolRes = await runTool(toolName, { workspace: turn.workspace, signal }, parsed);
+            const toolRes = await runTool(toolName, { workspace: turn.workspace, signal, sessionId: turn.sessionId, emit: (d) => turn.emit(d) }, parsed);
             resultText = toolRes.content;
             diff = toolRes.diff ?? null;
             if (!toolRes.ok) status = 'error';

@@ -197,3 +197,37 @@ test('composer: textarea, send + stop, scroll-to-bottom button', () => {
   const app = pub('app.js');
   assert.match(app, /autosize/);
 });
+
+test('todo panel: html container, renderTodos + todo_update event wired', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="todo-panel"/);
+  const app = pub('app.js');
+  assert.match(app, /function renderTodos/);
+  assert.match(app, /case 'todo_update'/);
+  const css = pub('styles.css');
+  assert.match(css, /\.todo-item\.completed/);
+  assert.match(css, /\.todo-item\.in_progress/);
+});
+
+test('runtime: todo_update event renders a checklist into the panel', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    app.api.renderEvent({ type: 'todo_update', todos: [
+      { id: '1', content: 'First step', status: 'completed' },
+      { id: '2', content: 'Second step', status: 'in_progress' },
+      { id: '3', content: 'Third step', status: 'pending' },
+    ] });
+    const panel = app.els.get('#todo-panel');
+    const texts = panel.texts();
+    assert.ok(texts.some((t) => t.includes('Tasks')), 'todo head missing');
+    assert.ok(texts.some((t) => /1\/3/.test(t)), 'todo done count missing');
+    assert.ok(texts.some((t) => t.includes('First step')), 'first todo missing');
+    assert.ok(texts.some((t) => t.includes('Third step')), 'third todo missing');
+    // clearing hides the list again
+    app.api.renderEvent({ type: 'todo_update', todos: [] });
+    assert.equal(app.els.get('#todo-panel').texts().length, 0);
+  } finally {
+    app.done();
+  }
+});

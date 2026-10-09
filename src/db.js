@@ -54,6 +54,11 @@ export function openDatabase(file) {
       path        TEXT PRIMARY KEY,
       imported_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS todos (
+      conversation_id TEXT PRIMARY KEY,
+      todos           TEXT NOT NULL,
+      updated_at      TEXT NOT NULL
+    );
   `);
   return db;
 }
@@ -118,6 +123,26 @@ export function setSettings(obj) {
   for (const [k, v] of Object.entries(obj)) stmt.run(k, String(v));
 }
 
+/* ---------------- todos ---------------- */
+
+export function setTodos(conversationId, todos) {
+  const now = new Date().toISOString();
+  getDb()
+    .prepare('INSERT INTO todos (conversation_id, todos, updated_at) VALUES (?, ?, ?) ON CONFLICT(conversation_id) DO UPDATE SET todos = excluded.todos, updated_at = excluded.updated_at')
+    .run(String(conversationId), JSON.stringify(todos), now);
+  return todos;
+}
+
+export function getTodos(conversationId) {
+  const row = getDb().prepare('SELECT todos FROM todos WHERE conversation_id = ?').get(String(conversationId));
+  if (!row) return [];
+  try {
+    return JSON.parse(row.todos);
+  } catch {
+    return [];
+  }
+}
+
 /* ---------------- conversations ---------------- */
 
 function rowToConversation(row) {
@@ -161,6 +186,7 @@ export function touchConversation(id, { mode, workspace } = {}) {
 
 export function deleteConversation(id) {
   const changes = getDb().prepare('DELETE FROM conversations WHERE id = ?').run(String(id)).changes;
+  getDb().prepare('DELETE FROM todos WHERE conversation_id = ?').run(String(id));
   return changes > 0;
 }
 

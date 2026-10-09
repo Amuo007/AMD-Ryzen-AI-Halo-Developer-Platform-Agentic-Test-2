@@ -1,7 +1,12 @@
 export const MODES = ['ask', 'auto-edit', 'full'];
 
-export const READ_ONLY_TOOLS = new Set(['read_file', 'list_dir', 'search']);
+export const READ_ONLY_TOOLS = new Set(['read_file', 'list_dir', 'search', 'glob_files', 'shell_jobs']);
 export const FILE_EDIT_TOOLS = new Set(['write_file', 'edit_file']);
+/**
+ * Tools that never touch the workspace (or only the agent's own bookkeeping /
+ * its own background jobs) and are auto-approved in every mode.
+ */
+export const AUTO_ALLOW_TOOLS = new Set([...READ_ONLY_TOOLS, 'todo', 'kill_shell']);
 
 /**
  * Deny list: checked against the full shell command string in EVERY
@@ -55,7 +60,7 @@ export function decidePermission({ mode, toolName, args, alwaysAllow = new Set()
     return { action: 'allow' };
   }
   if (mode === 'ask') {
-    if (READ_ONLY_TOOLS.has(toolName)) return { action: 'allow' };
+    if (AUTO_ALLOW_TOOLS.has(toolName)) return { action: 'allow' };
     return { action: 'ask' };
   }
   return { action: 'ask', reason: `Unknown permission mode "${mode}", defaulting to ask` };
@@ -64,11 +69,15 @@ export function decidePermission({ mode, toolName, args, alwaysAllow = new Set()
 export function describeToolCall(toolName, args = {}) {
   switch (toolName) {
     case 'run_shell':
-      return `Run shell command: ${args.command ?? ''}`;
+      return `Run shell command${args.background === true ? ' in the background' : ''}: ${args.command ?? ''}`;
     case 'write_file':
       return `Write file: ${args.path ?? ''} (${String(args.content ?? '').length} chars)`;
-    case 'edit_file':
-      return `Edit file: ${args.path ?? ''}`;
+    case 'edit_file': {
+      const n = Array.isArray(args.edits) ? `${args.edits.length} edits to ` : '';
+      return `Edit file: ${n}${args.path ?? ''}`;
+    }
+    case 'kill_shell':
+      return `Stop background job: ${args.job_id ?? ''}`;
     default:
       return `${toolName}: ${JSON.stringify(args)}`;
   }

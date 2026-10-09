@@ -6,8 +6,9 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, saveConfig, publicConfig } from './config.js';
-import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback } from './db.js';
+import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback, getTodos } from './db.js';
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
+import { killAllJobs } from './tools/jobs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -128,6 +129,7 @@ export function createRequestHandler() {
           session: {
             ...conv,
             messageCount: messages.filter((m) => m.role !== 'tool').length,
+            todos: getTodos(id),
             messages: messages.map(({ __meta, ...m }) => (m.role === 'assistant' ? { ...m, id: __meta.id, feedback: __meta.feedback } : m)),
           },
           active: Boolean(turn && !turn.finished),
@@ -312,6 +314,7 @@ export async function startServer({ port = 4848, host = '127.0.0.1', openBrowser
     close: () =>
       new Promise((resolve) => {
         for (const turn of turnsMap.values()) if (!turn.finished) turn.stop();
+        killAllJobs();
         server.closeAllConnections?.();
         server.close(resolve);
       }),

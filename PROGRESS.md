@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/tools-v2` (starting)
-- Doing: task 1 — tool-suite upgrade (glob, multi-edit, search filters, background shells, todo tool)
-- Half-done: nothing yet
+- Branch: `feat/system-prompt`
+- Doing: task 2 — system prompt as markdown file with workspace/global override chain
+- Half-done: nothing; task 1 (tools v2) merged, 135 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -13,14 +13,14 @@
 - [x] Write PROGRESS.md plan
 
 ## 1. Tools good enough for real agentic work (`feat/tools-v2`)
-- [ ] `glob_files` tool: glob patterns (`*`, `**`, `?`), mtime sort, skip node_modules/.git, cap+errors
-- [ ] `edit_file` multi-edit: `edits: [{old_string,new_string,all}]` applied in order, one write, one diff
-- [ ] `search` upgrades: `glob` path filter, `ignore_case`, `context_lines`
-- [ ] Background shells: `run_shell` `background:true` → job id; `shell_jobs` (status + new output); `kill_shell`
-- [ ] `todo` tool: full-list replace, persisted per conversation, `todo_update` SSE event
-- [ ] Permissions: auto-allow safe new tools, ask rules for the rest; better tool descriptions
-- [ ] UI: live todo panel above composer; render on session open
-- [ ] Tests for all of the above; npm test green; merge to main + push
+- [x] `glob_files` tool: glob patterns (`*`, `**`, `?`), mtime sort, skip node_modules/.git, cap+errors
+- [x] `edit_file` multi-edit: `edits: [{old_string,new_string,all}]` applied in order, one write, one diff
+- [x] `search` upgrades: `glob` path filter, `ignore_case`, `context_lines`
+- [x] Background shells: `run_shell` `background:true` → job id; `shell_jobs` (status + new output); `kill_shell`
+- [x] `todo` tool: full-list replace, persisted per conversation, `todo_update` SSE event
+- [x] Permissions: auto-allow safe new tools, ask rules for the rest; better tool descriptions
+- [x] UI: live todo panel above composer; render on session open
+- [x] Tests for all of the above; npm test green (135); merge to main + push
 
 ## 2. System prompt as a markdown file (`feat/system-prompt`)
 - [ ] `prompt/system.md` (Code) + `prompt/chat.md` (Chat) written as proper agent prompts

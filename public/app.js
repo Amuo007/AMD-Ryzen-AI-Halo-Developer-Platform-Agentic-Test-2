@@ -527,7 +527,7 @@ async function saveSettings(e) {
   if (key) patch.apiKey = key;
   try {
     await api('PUT', '/api/config', patch);
-    setStatusModel();
+    setStatusModel(); checkLlm();
     els.settingsModal.close();
   } catch (err) {
     $('#settings-msg').textContent = `Failed: ${err.message}`;
@@ -537,6 +537,23 @@ async function saveSettings(e) {
 async function setStatusModel() {
   const cfg = await api('GET', '/api/config');
   els.statusModel.textContent = cfg.model;
+}
+
+async function checkLlm() {
+  const dot = $('#status-llm');
+  try {
+    const s = await api('GET', '/api/llm-status');
+    if (s.ok) {
+      dot.textContent = '● LLM ok';
+      dot.className = 'status-item llm-ok';
+    } else {
+      dot.textContent = `● ${s.error ?? 'LLM unreachable'}`;
+      dot.className = 'status-item llm-bad';
+    }
+  } catch {
+    dot.textContent = '● forge unreachable';
+    dot.className = 'status-item llm-bad';
+  }
 }
 
 /* ---------------- init ---------------- */
@@ -582,7 +599,9 @@ async function init() {
   });
   els.input.addEventListener('input', autosize);
 
-  await setStatusModel();
+  await setStatusModel(); checkLlm();
+  checkLlm();
+  setInterval(checkLlm, 20000);
   const ws = els.workspace.value.trim();
   if (ws) {
     await loadSessions();

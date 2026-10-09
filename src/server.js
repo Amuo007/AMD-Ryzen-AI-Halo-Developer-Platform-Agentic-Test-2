@@ -230,6 +230,23 @@ export function createRequestHandler() {
         return sendJson(res, 200, { path: real, parent: parent === real ? null : parent, home, dirs: entries });
       }
 
+      if (req.method === 'GET' && p === '/api/llm-status') {
+        const cfg = loadConfig();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+          const lres = await fetch(`${String(cfg.baseURL).replace(/\/+$/, '')}/models`, {
+            signal: controller.signal,
+            headers: cfg.apiKey ? { Authorization: `Bearer ${cfg.apiKey}` } : {},
+          });
+          return sendJson(res, 200, { ok: lres.ok, status: lres.status, baseURL: cfg.baseURL });
+        } catch (err) {
+          return sendJson(res, 200, { ok: false, error: `Cannot reach LLM server at ${cfg.baseURL}: ${err.cause?.code ?? err.message}`, baseURL: cfg.baseURL });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
       return sendJson(res, 404, { error: `No route: ${req.method} ${p}` });
     } catch (err) {
       const status = err.status ?? 500;

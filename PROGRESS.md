@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/reasoning`
-- Doing: task 5 — reasoning control (auto/high/low/off per conversation), collapsible thought block
-- Half-done: nothing; tasks 1–4 merged, 161 tests green
+- Branch: `feat/context-meter` (next `feat/handoff`)
+- Doing: task 6 — 140K context default, real usage counts, circular meter + breakdown popup
+- Half-done: nothing; tasks 1–5 merged, 165 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -46,10 +46,10 @@
 - [x] Tests incl. mock MCP server; merge + push
 
 ## 5. Reasoning control (`feat/reasoning`)
-- [ ] `reasoning`: auto/high/low/off per conversation from composer; real params to the API (`chat_template_kwargs.thinking`, `reasoning_effort`)
-- [ ] Persist per conversation; default persisted in settings
-- [ ] Thinking rendered as collapsible "Thought for Ns" block (live timer while running)
-- [ ] Tests (mock asserts body); merge + push
+- [x] `reasoning`: auto/high/low/off per conversation from composer; real params to the API (`chat_template_kwargs.thinking`, `reasoning_effort`)
+- [x] Persist per conversation; default persisted in settings
+- [x] Thinking rendered as collapsible "Thought for Ns" block (live timer while running)
+- [x] Tests (mock asserts body); merge + push
 
 ## 6. Context window, meter & automatic handoff (`feat/context-meter`, `feat/handoff`)
 - [ ] Defaults: context limit 140K, handoff at 128K (both Settings-configurable)

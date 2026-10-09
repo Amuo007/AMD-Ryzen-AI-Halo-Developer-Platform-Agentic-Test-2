@@ -283,7 +283,11 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 #mascot[data-state="typing"] .m-eyes { transform: translateY(-1.4px); }
 #mascot[data-state="typing"] .m-head { transform: rotate(-2deg); }
 #mascot[data-state="waiting"] { animation: m-breathe 2.4s ease-in-out infinite; }
-#mascot[data-state="waiting"] .m-halo { animation: m-halo-pulse 1.3s ease-in-out infinite; filter: drop-shadow(0 0 5px rgba(242, 101, 60, 0.85)); }
+#mascot[data-state="waiting"] .m-eyes { transform: translateY(-1.6px); }
+#mascot[data-state="waiting"] .m-halo { animation: m-halo-glow 1.3s ease-in-out infinite; }
+#mascot[data-state="waiting"] .m-halo ellipse { stroke-dasharray: 40 78; animation: m-ring-travel 1.4s linear infinite; }
+@keyframes m-ring-travel { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -118; } }
+@keyframes m-halo-glow { 0%, 100% { filter: drop-shadow(0 0 2px rgba(242, 101, 60, 0.35)); } 50% { filter: drop-shadow(0 0 7px rgba(242, 101, 60, 0.95)); } }
 #mascot[data-state="thinking"] .m-head { animation: m-think-tilt 3.4s ease-in-out infinite; }
 #mascot[data-state="thinking"] .m-eyes { animation: m-dart 1.7s ease-in-out infinite; }
 #mascot[data-state="thinking"] .m-mouth { transform: scaleY(0.6); }

@@ -71,6 +71,18 @@ test('greeting screens: chat "Good <time>" and code "What\'s up next"', () => {
   assert.match(app, /class: 'greeting'/);
 });
 
+test('runtime: app boots headlessly and chat welcome renders without throwing', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    assert.deepEqual(app.rejections.map((e) => String(e?.stack || e)), [], 'app.js must not throw during init');
+    const texts = app.els.get('#messages').texts();
+    assert.ok(texts.some((t) => /^Good (morning|afternoon|evening), /.test(t)), `chat welcome missing: ${JSON.stringify(texts)}`);
+  } finally {
+    app.done();
+  }
+});
+
 test('stats dashboard: tabs, range selector, tiles and heatmap', () => {
   const app = pub('app.js');
   assert.match(app, /\/api\/stats/);

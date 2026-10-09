@@ -561,7 +561,7 @@ function renderWelcome() {
   els.messages.innerHTML = '';
   if (state.agentMode === 'chat') {
     const w = el('div', { class: 'welcome centered' }, [
-      el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `Good ${greetingWord()}, ${state.userName.textContent || 'there'}` })]),
+      el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `Good ${greetingWord()}, ${els.userName.textContent || 'there'}` })]),
     ]);
     els.messages.appendChild(w);
     return;
@@ -1052,3 +1052,6 @@ async function init() {
 }
 
 init();
+
+/* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
+globalThis.__forge = { state, els, renderEvent, send, newChat, openSession };

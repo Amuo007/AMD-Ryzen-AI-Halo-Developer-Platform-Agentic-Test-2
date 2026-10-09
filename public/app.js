@@ -39,6 +39,7 @@ const els = {
   browseUp: $('#browse-up'),
   browseClose: $('#browse-close'),
   browseChoose: $('#browse-choose'),
+  mascot: $('#mascot'),
 };
 
 const SVG = {
@@ -115,6 +116,15 @@ function applyTheme(t) {
   localStorage.setItem('forge-theme', t);
 }
 applyTheme(localStorage.getItem('forge-theme') || 'light');
+
+/* ---------------- mascot ---------------- */
+
+const mascot = { state: 'idle', typingTimer: null };
+function setMascotState(next) {
+  if (!els.mascot || mascot.state === next) return;
+  mascot.state = next;
+  els.mascot.setAttribute('data-state', next);
+}
 
 /* ---------------- markdown (no deps) ---------------- */
 
@@ -437,9 +447,11 @@ function renderEvent(ev) {
       appendUser(ev.message);
       break;
     case 'reasoning_delta':
+      setMascotState('thinking');
       appendReasoning(ev.text);
       break;
     case 'text_delta':
+      setMascotState('talking');
       state.thinkingEl = null;
       appendText(ev.text);
       break;
@@ -500,6 +512,7 @@ function renderEvent(ev) {
       break;
     }
     case 'permission_request':
+      setMascotState('waiting');
       renderPermission(ev);
       break;
     case 'usage':
@@ -510,6 +523,7 @@ function renderEvent(ev) {
       setStatusError(`LLM hiccup (${ev.attempt}): ${ev.error} — retrying…`);
       break;
     case 'turn_end':
+      setMascotState('idle');
       endAssistant();
       renderEditsSummary();
       setRunning(false);
@@ -518,6 +532,7 @@ function renderEvent(ev) {
       if (ev.stopped) appendSystemNote('⏹ Stopped by user.');
       break;
     case 'stream_end':
+      if (!state.running) setMascotState('idle');
       endAssistant();
       setRunning(false);
       break;
@@ -768,7 +783,10 @@ async function openSession(id) {
   }
   if (active) {
     setRunning(true);
+    setMascotState('waiting');
     connectEvents(id);
+  } else {
+    setMascotState('idle');
   }
   els.topTitle.textContent = session.title;
   if (session.mode === 'code' && session.workspace) {
@@ -832,6 +850,8 @@ async function send() {
   setRunning(true);
   els.input.value = '';
   autosize();
+  clearTimeout(mascot.typingTimer);
+  setMascotState('waiting');
   state.lastUserMessage = message;
   try {
     await api('POST', '/api/chat', {
@@ -869,6 +889,7 @@ function newChat() {
   disconnectEvents();
   state.sessionId = null;
   setRunning(false);
+  setMascotState('idle');
   clearMessages();
   renderWelcome();
   updateTopbar();
@@ -1016,6 +1037,14 @@ async function init() {
     if (e.key === 'Escape' && state.running) stop();
   });
   els.input.addEventListener('input', autosize);
+  els.input.addEventListener('input', () => {
+    if (state.running) return;
+    setMascotState('typing');
+    clearTimeout(mascot.typingTimer);
+    mascot.typingTimer = setTimeout(() => {
+      if (!state.running) setMascotState('idle');
+    }, 1500);
+  });
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
 
@@ -1054,4 +1083,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, els, renderEvent, send, newChat, openSession };
+globalThis.__forge = { state, els, renderEvent, send, newChat, openSession, setMascotState, mascot };

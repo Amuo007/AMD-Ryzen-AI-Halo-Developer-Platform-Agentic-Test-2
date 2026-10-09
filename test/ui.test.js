@@ -83,6 +83,61 @@ test('runtime: app boots headlessly and chat welcome renders without throwing', 
   }
 });
 
+test('mascot: SVG art in composer + CSS animations for all 5 states', () => {
+  const html = pub('index.html');
+  assert.match(html, /<svg id="mascot"/);
+  assert.match(html, /data-state="idle"/);
+  for (const part of ['m-halo', 'm-body', 'm-head', 'm-eyes', 'm-mouth', 'composer-row', 'composer-main'])
+    assert.ok(html.includes(part), `mascot part missing: ${part}`);
+  const css = pub('styles.css');
+  for (const st of ['idle', 'typing', 'waiting', 'thinking', 'talking'])
+    assert.match(css, new RegExp(`#mascot\\[data-state="${st}"\\]`));
+  for (const kf of ['m-breathe', 'm-blink', 'm-trot', 'm-halo-pulse', 'm-dart', 'm-think-tilt', 'm-talk'])
+    assert.match(css, new RegExp(`@keyframes ${kf}`));
+  assert.match(css, /prefers-reduced-motion/);
+});
+
+test('runtime: mascot state machine switches with app events', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    const svg = app.els.get('#mascot');
+    const st = () => svg.getAttribute('data-state') || app.api.mascot.state;
+    assert.equal(app.api.mascot.state, 'idle');
+    // typing
+    app.els.get('#input').value = 'hello there';
+    app.fire(app.els.get('#input'), 'input');
+    assert.equal(st(), 'typing');
+    // send -> waiting
+    app.fire(app.els.get('#send-btn'), 'click');
+    await new Promise((r) => setTimeout(r, 120));
+    assert.equal(st(), 'waiting');
+    assert.equal(app.api.state.running, true);
+    // reasoning -> thinking
+    app.api.renderEvent({ type: 'reasoning_delta', text: 'hmm ' });
+    assert.equal(st(), 'thinking');
+    // answer text -> talking
+    app.api.renderEvent({ type: 'text_delta', text: 'hi!' });
+    assert.equal(st(), 'talking');
+    // done -> idle
+    app.api.renderEvent({ type: 'turn_end' });
+    assert.equal(st(), 'idle');
+    // permission request -> waiting
+    app.api.renderEvent({ type: 'permission_request', requestId: 'r1', toolName: 'run_shell', description: 'do a thing' });
+    assert.equal(st(), 'waiting');
+    app.api.renderEvent({ type: 'turn_end' });
+    // typing calms back to idle after ~1.5 s of no keystrokes
+    app.els.get('#input').value = 'typing again';
+    app.fire(app.els.get('#input'), 'input');
+    assert.equal(st(), 'typing');
+    await new Promise((r) => setTimeout(r, 1650));
+    assert.equal(st(), 'idle');
+    assert.deepEqual(app.rejections.map((e) => String(e?.stack || e)), [], 'no unhandled rejections during state switches');
+  } finally {
+    app.done();
+  }
+});
+
 test('stats dashboard: tabs, range selector, tiles and heatmap', () => {
   const app = pub('app.js');
   assert.match(app, /\/api\/stats/);

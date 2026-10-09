@@ -193,6 +193,7 @@ test('static: index, css, js served', async () => {
   assert.match(idx.body, /id="settings-btn"/);
   assert.match(idx.body, /id="mode-select"/);
   assert.match(idx.body, /id="stop-btn"/);
+  assert.match(idx.body, /id="mascot"/);
   assert.match(idx.body, /id="theme-toggle"/);
   const css = await get('/styles.css');
   assert.equal(css.status, 200);

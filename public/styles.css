@@ -260,7 +260,39 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .stop-btn { background: var(--danger); }
 .composer-note { text-align: center; font-size: 11.5px; color: var(--text-faint); margin: 10px 0 0; }
-.mode-code .composer-note { }
+
+/* ================= mascot ================= */
+.composer-row { display: flex; gap: 12px; align-items: flex-end; }
+.composer-main { flex: 1; min-width: 0; }
+#mascot { flex: 0 0 46px; width: 46px; height: auto; overflow: visible; align-self: flex-end; }
+#mascot .m-halo, #mascot .m-head, #mascot .m-eyes, #mascot .m-mouth, #mascot .m-body { transform-box: fill-box; transition: transform 0.35s ease, opacity 0.35s ease; }
+#mascot .m-halo { transform-origin: 50% 50%; }
+#mascot .m-head { transform-origin: 50% 92%; }
+#mascot .m-eyes { transform-origin: 50% 45%; }
+#mascot .m-mouth { transform-origin: 50% 0%; }
+@keyframes m-breathe { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-1.5px) scale(1.022); } }
+@keyframes m-blink { 0%, 88%, 100% { transform: scaleY(1); } 92%, 95.5% { transform: scaleY(0.08); } }
+@keyframes m-trot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2.2px); } }
+@keyframes m-halo-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.16); opacity: 0.5; } }
+@keyframes m-dart { 0%, 16% { transform: translateX(-2.2px); } 38%, 56% { transform: translateX(2.2px); } 76%, 100% { transform: translateX(-2.2px); } }
+@keyframes m-think-tilt { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(-1deg) translateY(-1px); } }
+@keyframes m-talk { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1.15); } }
+#mascot[data-state="idle"] { animation: m-breathe 4s ease-in-out infinite; }
+#mascot[data-state="idle"] .m-eyes { animation: m-blink 5.2s ease-in-out infinite; }
+#mascot[data-state="typing"] { animation: m-trot 0.5s ease-in-out infinite; }
+#mascot[data-state="typing"] .m-eyes { transform: translateY(-1.4px); }
+#mascot[data-state="typing"] .m-head { transform: rotate(-2deg); }
+#mascot[data-state="waiting"] { animation: m-breathe 2.4s ease-in-out infinite; }
+#mascot[data-state="waiting"] .m-halo { animation: m-halo-pulse 1.3s ease-in-out infinite; filter: drop-shadow(0 0 5px rgba(242, 101, 60, 0.85)); }
+#mascot[data-state="thinking"] .m-head { animation: m-think-tilt 3.4s ease-in-out infinite; }
+#mascot[data-state="thinking"] .m-eyes { animation: m-dart 1.7s ease-in-out infinite; }
+#mascot[data-state="thinking"] .m-mouth { transform: scaleY(0.6); }
+#mascot[data-state="talking"] { animation: m-trot 0.9s ease-in-out infinite; }
+#mascot[data-state="talking"] .m-mouth { animation: m-talk 0.42s ease-in-out infinite; }
+#mascot[data-state="talking"] .m-halo { animation: m-halo-pulse 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  #mascot, #mascot * { animation: none !important; transition: none !important; }
+}
 
 /* scroll-to-bottom */
 #scroll-bottom {

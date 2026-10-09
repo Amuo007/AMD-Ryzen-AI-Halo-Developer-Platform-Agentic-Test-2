@@ -187,10 +187,12 @@ test('e2e: AGENTS.md memory reaches the model', async () => {
       body: JSON.stringify({ workspace: ws, sessionId, message: 'hello', mode: 'full' }),
     });
     await collectUntil(port, sessionId, (ev) => ev.type === 'turn_end');
-    const systemPrompt = mock.requests[0].messages[0];
+    const firstReq = mock.requests[0];
+    const systemPrompt = firstReq.messages[0];
     assert.equal(systemPrompt.role, 'system');
     assert.match(systemPrompt.content, /AGENTS\.md/);
     assert.match(systemPrompt.content, /Always answer with the word FORGED\./);
+    assert.ok(firstReq.messages.some((m) => m.role === 'user' && m.content === 'hello'), 'user message reaches the model');
   } finally {
     await close();
     await mock.close();

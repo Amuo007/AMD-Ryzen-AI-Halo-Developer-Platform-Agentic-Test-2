@@ -150,6 +150,7 @@ async function consumeStream(res, { signal, onText, onReasoning, onToolCallDelta
     }
     const { done, value } = await reader.read();
     if (done) break;
+    if (process.env.FORGE_DEBUG) console.error('CONSUME-RAW', JSON.stringify(decoder.decode(value, { stream: false }).slice(0, 400)));
     parser.feed(decoder.decode(value, { stream: true }));
   }
 

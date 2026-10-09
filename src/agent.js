@@ -122,6 +122,7 @@ export async function runTurn(turn, userMessage) {
   const signal = turn.abortController.signal;
   turn.emit({ type: 'user', message: userMessage, mode: turn.mode });
   await appendMessage(turn.workspace, turn.sessionId, { role: 'user', content: userMessage });
+  messages.push({ role: 'user', content: userMessage });
 
   const agentsMd = await loadAgentsMd(turn.workspace);
   const systemPrompt = buildSystemPrompt({ workspace: turn.workspace, agentsMd });

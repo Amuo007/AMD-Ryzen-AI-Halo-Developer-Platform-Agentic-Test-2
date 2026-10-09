@@ -573,6 +573,9 @@ async function init() {
       send();
     }
   });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.running) stop();
+  });
   els.input.addEventListener('input', autosize);
 
   await setStatusModel();

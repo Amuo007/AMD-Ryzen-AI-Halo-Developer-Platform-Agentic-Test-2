@@ -74,8 +74,52 @@
 
       <div id="composer">
         <div class="composer-box">
-          <textarea id="input" rows="1" placeholder="How can I help you today?" spellcheck="false"></textarea>
-          <div class="composer-bar">
+          <div class="composer-row">
+            <svg id="mascot" class="mascot" viewBox="0 0 124 148" data-state="idle" role="img" aria-label="forge mascot">
+              <defs>
+                <linearGradient id="mg-head" x1="30" y1="34" x2="100" y2="92" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ff9a6a" /><stop offset="0.55" stop-color="#f2653c" /><stop offset="1" stop-color="#cc4622" />
+                </linearGradient>
+                <linearGradient id="mg-body" x1="42" y1="84" x2="84" y2="137" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#fa7d4e" /><stop offset="1" stop-color="#de4a26" />
+                </linearGradient>
+                <linearGradient id="mg-screen" x1="42" y1="42" x2="88" y2="87" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#fdf1e2" /><stop offset="1" stop-color="#f8ddbe" />
+                </linearGradient>
+                <linearGradient id="mg-halo" x1="35" y1="8" x2="90" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop offset="0" stop-color="#ffa578" /><stop offset="1" stop-color="#ef5f33" />
+                </linearGradient>
+                <radialGradient id="mg-ear" cx="0.35" cy="0.3" r="0.95">
+                  <stop offset="0" stop-color="#f57a4c" /><stop offset="1" stop-color="#a93a1e" />
+                </radialGradient>
+              </defs>
+              <g class="m-halo">
+                <g transform="rotate(-7 62 15)">
+                  <ellipse cx="62" cy="15" rx="27" ry="8" fill="none" stroke="url(#mg-halo)" stroke-width="5" />
+                </g>
+              </g>
+              <g class="m-body">
+                <g class="m-arm m-arm-l"><ellipse cx="32" cy="106" rx="7.6" ry="13.5" transform="rotate(22 32 106)" fill="#d84a26" /></g>
+                <g class="m-arm m-arm-r"><ellipse cx="92" cy="106" rx="7.6" ry="13.5" transform="rotate(-22 92 106)" fill="#d84a26" /></g>
+                <path d="M62 83 C 47 83 37.5 93 37.5 107.5 C 37.5 124.5 48.5 137 62 137 C 75.5 137 86.5 124.5 86.5 107.5 C 86.5 93 77 83 62 83 Z" fill="url(#mg-body)" />
+                <circle cx="62" cy="109" r="8.6" fill="none" stroke="#fdf0e0" stroke-width="5.2" />
+              </g>
+              <g class="m-head">
+                <circle cx="99" cy="66" r="9" fill="#a63a1d" />
+                <circle cx="25" cy="66" r="12.5" fill="url(#mg-ear)" />
+                <circle cx="24.4" cy="65.4" r="3.6" fill="#fdf0e0" />
+                <rect x="27" y="34" width="72" height="58" rx="21" fill="url(#mg-head)" />
+                <rect x="38" y="42" width="53" height="45" rx="15" fill="url(#mg-screen)" />
+                <g class="m-eyes">
+                  <ellipse class="m-eye" cx="54" cy="60.5" rx="4.8" ry="6.5" fill="#24272d" transform="rotate(-5 54 60.5)" />
+                  <ellipse class="m-eye" cx="74" cy="62" rx="5.4" ry="7.1" fill="#24272d" transform="rotate(7 74 62)" />
+                </g>
+                <path class="m-mouth" d="M58 71.5 C 60.5 75.5 65 77 69.5 74.5" fill="none" stroke="#24272d" stroke-width="2.4" stroke-linecap="round" />
+              </g>
+            </svg>
+            <div class="composer-main">
+              <textarea id="input" rows="1" placeholder="How can I help you today?" spellcheck="false"></textarea>
+              <div class="composer-bar">
             <div class="composer-left">
               <span id="mode-wrap" class="mode-wrap">
                 <span class="perm-label">Permission</span>
@@ -96,6 +140,8 @@
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
               </button>
             </div>
+          </div>
+          </div>
           </div>
         </div>
         <p class="composer-note">forge can make mistakes. Double-check important information.</p>

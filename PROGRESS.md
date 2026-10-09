@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/mcp`
-- Doing: task 4b — MCP stdio client, mcp.json config, namespaced tools, settings status
-- Half-done: tool-policy merged (156 tests green)
+- Branch: `feat/reasoning`
+- Doing: task 5 — reasoning control (auto/high/low/off per conversation), collapsible thought block
+- Half-done: nothing; tasks 1–4 merged, 161 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -40,10 +40,10 @@
 ## 4. Tool access & extensibility (`feat/tool-policy`, `feat/mcp`)
 - [x] Tool enable/disable in Settings (persisted); defs filtered per turn; disabled-tool calls get a clear error
 - [x] `GET /api/tools`, `POST /api/tools/enabled`
-- [ ] `src/mcp.js`: stdio JSON-RPC MCP client (initialize, tools/list, tools/call) + `~/.forge/mcp.json` + `.forge/mcp.json`
-- [ ] MCP tools namespaced `mcp__<server>__<tool>`, permissioned like write tools (readOnlyHint honored)
-- [ ] Settings: Tools tab shows core + MCP tools with toggles and server status
-- [ ] Tests incl. mock MCP server; merge + push
+- [x] `src/mcp.js`: stdio JSON-RPC MCP client (initialize, tools/list, tools/call) + `~/.forge/mcp.json` + `.forge/mcp.json`
+- [x] MCP tools namespaced `mcp__<server>__<tool>`, permissioned like write tools (readOnlyHint honored)
+- [x] Settings: Tools tab shows core + MCP tools with toggles and server status
+- [x] Tests incl. mock MCP server; merge + push
 
 ## 5. Reasoning control (`feat/reasoning`)
 - [ ] `reasoning`: auto/high/low/off per conversation from composer; real params to the API (`chat_template_kwargs.thinking`, `reasoning_effort`)

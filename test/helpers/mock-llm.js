@@ -23,7 +23,9 @@ export function startMockLLM(handler) {
         });
         const list = typeof reply.chunks === 'function' ? reply.chunks() : reply.chunks;
         for (const chunk of list) {
-          res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+          const { delay, ...obj } = chunk;
+          if (delay) await new Promise((r) => setTimeout(r, delay));
+          res.write(`data: ${JSON.stringify(obj)}\n\n`);
         }
         res.write('data: [DONE]\n\n');
         res.end();

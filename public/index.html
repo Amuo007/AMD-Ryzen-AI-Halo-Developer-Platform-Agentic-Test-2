@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>forge</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%92%3C/text%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <header class="side-head">
+        <div class="brand"><span class="brand-icon">⚒</span> forge</div>
+        <button id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
+      </header>
+      <button id="new-chat" class="btn primary block">＋ New chat</button>
+      <div class="side-section">
+        <label class="side-label" for="workspace-input">Workspace</label>
+        <div class="workspace-row">
+          <input id="workspace-input" type="text" spellcheck="false" placeholder="/path/to/project" />
+          <button id="browse-btn" class="btn ghost" title="Browse folders">…</button>
+        </div>
+        <div id="workspace-error" class="hint error hidden"></div>
+      </div>
+      <div class="side-section grow">
+        <label class="side-label">Sessions</label>
+        <nav id="session-list"></nav>
+      </div>
+      <footer class="side-foot">
+        <button id="settings-btn" class="btn ghost block">⚙ Settings</button>
+      </footer>
+    </aside>
+
+    <main id="main">
+      <div id="messages" class="scroll-y"></div>
+      <div id="statusbar">
+        <span id="status-model" class="status-item" title="Model">—</span>
+        <span class="status-item" id="mode-wrap">
+          Mode
+          <select id="mode-select" title="Permission mode">
+            <option value="ask">Ask</option>
+            <option value="auto-edit">Auto-edit</option>
+            <option value="full">Full access</option>
+          </select>
+        </span>
+        <span id="status-tokens" class="status-item">tokens: —</span>
+        <span id="status-error" class="status-item error hidden"></span>
+      </div>
+      <div id="composer">
+        <textarea id="input" rows="2" placeholder="Describe a task… (Enter to send, Shift+Enter for newline)"></textarea>
+        <button id="send-btn" class="btn primary">Send</button>
+        <button id="stop-btn" class="btn danger hidden">■ Stop</button>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="settings-modal">
+    <form method="dialog" id="settings-form">
+      <h2>Settings</h2>
+      <label>Base URL<input id="set-baseurl" type="text" spellcheck="false" /></label>
+      <label>API key<input id="set-apikey" type="password" spellcheck="false" placeholder="unchanged" /><span class="hint" id="set-apikey-hint"></span></label>
+      <label>Model<input id="set-model" type="text" spellcheck="false" /></label>
+      <div class="row">
+        <label>Max steps<input id="set-maxsteps" type="number" min="1" max="500" /></label>
+        <label>Context limit (tokens)<input id="set-contextlimit" type="number" min="4000" step="1000" /></label>
+      </div>
+      <p class="hint">Environment variables FORGE_BASE_URL / FORGE_API_KEY / FORGE_MODEL override these.</p>
+      <menu>
+        <button value="cancel" class="btn ghost">Cancel</button>
+        <button value="save" class="btn primary" id="settings-save">Save</button>
+      </menu>
+      <div id="settings-msg" class="hint"></div>
+    </form>
+  </dialog>
+
+  <dialog id="browse-modal">
+    <div class="browse-head">
+      <strong>Choose project folder</strong>
+      <button id="browse-close" class="btn ghost">✕</button>
+    </div>
+    <div id="browse-path" class="browse-path"></div>
+    <div id="browse-list" class="scroll-y"></div>
+    <menu>
+      <button id="browse-up" class="btn ghost">↑ Up</button>
+      <span class="spacer"></span>
+      <button id="browse-choose" class="btn primary">Use this folder</button>
+    </menu>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -61,7 +61,24 @@
 - **AGENTS.md** from the workspace root is appended to the system prompt (capped at 32 KB).
 
 ## Frontend
-- Vanilla everything. Dark theme by default with a manual toggle (persisted).
+- Vanilla everything. **Light theme is the default** from v2 — the UI follows the
+  Claude Desktop / Claude Code screenshots in `reference/` (kept in the repo as the
+  design source); dark theme remains via the ◐ toggle (persisted).
+- **Greeting screens**: Chat mode shows "Good morning/afternoon/evening, `<user>`";
+  Code mode shows "What's up next, `<user>?`" above the usage dashboard (tiles +
+  13-week heatmap from `/api/stats`, All/30d/7d ranges). Username comes from
+  `os.userInfo()` server-side — fine because the server is 127.0.0.1-only.
+- **Markdown rendered in-app** (`renderMarkdown`/`renderText`, ~80 lines, no deps):
+  headings, lists, bold/italic, inline code, links, fenced blocks with language tag;
+  everything HTML-escaped before formatting.
+- **Message actions**: copy (clipboard) and 👍/👎 per assistant message; feedback goes to
+  `POST /api/feedback`, is stored on the message row and re-applied on session open.
+  Toggling the same rating clears it.
+- **Edits summary card**: a turn's write/edit diffs are aggregated into one
+  "Edited N files +A −D" card; more than 4 files collapse behind "Show N more"; each row
+  opens the full diff. Language badge derived from the file extension.
+- Sidebar sessions are **grouped by date** (Today / Yesterday / `Mon D` [ / year]) with
+  hover-delete.
 - **Tool cards** are `<details>`: name, live-streaming args, status pill, result, and a
   real LCS line-diff (red/green) for write/edit. Cards auto-expand on error/denied.
 - **Permission dialogs** live inline in the chat (not a modal) so they survive reload via
@@ -89,3 +106,7 @@
   no-op and deleted.
 - One early branch juggling mishap orphaned an `agent.js` commit; it was restored from
   the object store (`git show <sha>`) and re-committed. Everything on main is intact.
+- v2: the reference-design UI overhaul was recovered from an interrupted session as
+  uncommitted work (`feat/reference-design`, split backend/UI commits), plus a 24-check
+  end-to-end smoke (real `bin/forge.js` + mock LLM) covering chat, permission allow/deny,
+  stop, stats, feedback, sessions, search, browse and delete — all green.

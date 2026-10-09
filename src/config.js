@@ -1,7 +1,4 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
+import { getAllSettings, setSetting } from './db.js';
 
 export const DEFAULTS = {
   baseURL: 'http://192.168.1.252:13305/v1',
@@ -12,34 +9,31 @@ export const DEFAULTS = {
   port: 4848,
 };
 
-/** Where the config file lives (override with FORGE_CONFIG, for tests). */
-export function configFilePath() {
-  return process.env.FORGE_CONFIG || path.join(os.homedir(), '.config', 'forge', 'config.json');
-}
+const NUMERIC = new Set(['maxSteps', 'contextLimit', 'port']);
 
 /**
- * Load config: file values, then env overrides
+ * Load config: defaults, then SQLite `settings` rows, then env overrides
  * (FORGE_BASE_URL, FORGE_API_KEY, FORGE_MODEL).
  */
 export function loadConfig() {
   const cfg = { ...DEFAULTS };
-  const file = configFilePath();
-  try {
-    const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-    if (raw && typeof raw === 'object') {
-      for (const key of Object.keys(DEFAULTS)) {
-        if (raw[key] !== undefined && raw[key] !== null) cfg[key] = raw[key];
-      }
+  const stored = getAllSettings();
+  for (const key of Object.keys(DEFAULTS)) {
+    if (stored[key] !== undefined && stored[key] !== null && stored[key] !== '') {
+      cfg[key] = NUMERIC.has(key) ? Number(stored[key]) : stored[key];
     }
-  } catch {
-    // no file / corrupt file → defaults
   }
   if (process.env.FORGE_BASE_URL) cfg.baseURL = process.env.FORGE_BASE_URL;
   if (process.env.FORGE_API_KEY) cfg.apiKey = process.env.FORGE_API_KEY;
   if (process.env.FORGE_MODEL) cfg.model = process.env.FORGE_MODEL;
-  cfg.maxSteps = Math.max(1, Math.min(500, Number(cfg.maxSteps) || DEFAULTS.maxSteps));
-  cfg.contextLimit = Math.max(4000, Number(cfg.contextLimit) || DEFAULTS.contextLimit);
+  cfg.maxSteps = clamp(Number(cfg.maxSteps), 1, 500, DEFAULTS.maxSteps);
+  cfg.contextLimit = clamp(Number(cfg.contextLimit), 4000, 1_000_000_000, DEFAULTS.contextLimit);
   return cfg;
+}
+
+function clamp(value, min, max, fallback) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
 }
 
 export function maskKey(key) {
@@ -63,26 +57,19 @@ export function publicConfig(cfg) {
 }
 
 /**
- * Merge a partial update into the config file. `apiKey` equal to the current
+ * Merge a partial update into the settings table. `apiKey` equal to the current
  * masked placeholder is ignored so the UI can resubmit without clobbering.
  */
 export async function saveConfig(partial = {}) {
-  const file = configFilePath();
-  let current = {};
-  try {
-    current = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    /* start fresh */
-  }
-  const next = { ...current };
+  const current = {};
+  const stored = getAllSettings();
+  for (const key of Object.keys(DEFAULTS)) if (stored[key] !== undefined) current[key] = stored[key];
   for (const key of ['baseURL', 'model', 'maxSteps', 'contextLimit', 'port']) {
-    if (partial[key] !== undefined) next[key] = partial[key];
+    if (partial[key] !== undefined) setSetting(key, partial[key]);
   }
   if (partial.apiKey !== undefined) {
     const masked = maskKey(process.env.FORGE_API_KEY || current.apiKey || '');
-    if (partial.apiKey !== masked) next.apiKey = partial.apiKey;
+    if (partial.apiKey !== masked) setSetting('apiKey', partial.apiKey);
   }
-  await fsp.mkdir(path.dirname(file), { recursive: true });
-  await fsp.writeFile(file, JSON.stringify(next, null, 2), { encoding: 'utf8', mode: 0o600 });
-  return next;
+  return loadConfig();
 }

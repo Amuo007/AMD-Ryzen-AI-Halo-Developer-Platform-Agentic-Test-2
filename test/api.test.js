@@ -7,9 +7,10 @@ import path from 'node:path';
 
 // isolated config + point the agent at a mock LLM
 const tmpHome = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-api-'));
-process.env.FORGE_CONFIG = path.join(tmpHome, 'config.json');
+process.env.FORGE_DATA_DIR = tmpHome;
 
 const { startServer } = await import('../src/server.js');
+const { getSetting } = await import('../src/db.js');
 const { startMockLLM, deltaChunk, textChunks, toolCallChunks, usageChunk } = await import('./helpers/mock-llm.js');
 
 let forge;
@@ -145,8 +146,7 @@ test('health + config endpoints', async () => {
   assert.equal(u.status, 200);
   assert.equal(u.data.model, 'mock-model', 'env FORGE_MODEL keeps overriding the saved model');
   assert.equal(u.data.maxSteps, 7);
-  const rawFile = JSON.parse(await fsp.readFile(process.env.FORGE_CONFIG, 'utf8'));
-  assert.equal(rawFile.model, 'mock-model-2', 'saved model persists in the file');
+  assert.equal(getSetting('model'), 'mock-model-2', 'saved model persists in the database');
 });
 
 test('sessions endpoints on empty workspace', async () => {
@@ -197,12 +197,15 @@ test('chat full access: mock tool call creates a file, session persisted', async
   assert.equal(usage.usage.total_tokens, 7);
   const content = await fsp.readFile(path.join(ws, 'made-by-agent.txt'), 'utf8');
   assert.equal(content, 'hi from agent\n');
-  // session persisted
-  const s = await req('GET', `/api/session?workspace=${encodeURIComponent(ws)}&sessionId=${sessionId}`);
+  // session persisted in the database
+  const s = await req('GET', `/api/session?sessionId=${sessionId}`);
   assert.equal(s.status, 200);
   assert.equal(s.data.session.messages.length, 4); // user, assistant+tool_call, tool, assistant final
-  const jsonl = await fsp.readFile(path.join(ws, '.forge', 'sessions', `${sessionId}.jsonl`), 'utf8');
-  assert.equal(jsonl.trim().split('\n').length, 4);
+  assert.equal(s.data.session.workspace, await fsp.realpath(ws));
+  assert.equal(s.data.session.mode, 'code');
+  const listed = await req('GET', `/api/sessions?workspace=${encodeURIComponent(ws)}`);
+  assert.equal(listed.data.sessions.length, 1);
+  assert.equal(listed.data.sessions[0].id, sessionId);
 });
 
 

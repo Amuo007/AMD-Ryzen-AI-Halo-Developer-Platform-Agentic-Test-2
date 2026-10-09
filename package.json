@@ -12,6 +12,6 @@
   },
   "scripts": {
     "start": "node bin/forge.js",
-    "test": "node --test"
+    "test": "node scripts/run-tests.mjs"
   }
 }

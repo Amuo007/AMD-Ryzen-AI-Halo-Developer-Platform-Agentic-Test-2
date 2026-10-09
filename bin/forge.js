@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-import { startServer } from '../src/server.js';
+import { ensureNode22OrExit } from '../src/runtime.js';
+
+// re-exec under Node 22 if needed (node:sqlite) BEFORE loading sqlite modules
+ensureNode22OrExit(process.argv.slice(1), { label: 'forge' });
+
+const { startServer } = await import('../src/server.js');
 
 const argv = process.argv.slice(2);
 function flagVal(flag, fallback) {

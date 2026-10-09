@@ -3,7 +3,8 @@ import { runTool, toolDefs } from './tools/index.js';
 import { decidePermission, describeToolCall } from './permissions.js';
 import { trimContext } from './context.js';
 import { loadAgentsMd, buildSystemPrompt } from './memory.js';
-import { appendMessage } from './sessions.js';
+import { appendMessage } from './db.js';
+import { ensureConversation } from './conversations.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
@@ -121,7 +122,7 @@ export async function runTurn(turn, userMessage) {
   const messages = [];
   const signal = turn.abortController.signal;
   turn.emit({ type: 'user', message: userMessage, mode: turn.mode });
-  await appendMessage(turn.workspace, turn.sessionId, { role: 'user', content: userMessage });
+  await appendMessage(turn.sessionId, { role: 'user', content: userMessage });
   messages.push({ role: 'user', content: userMessage });
 
   const agentsMd = await loadAgentsMd(turn.workspace);
@@ -161,7 +162,7 @@ export async function runTurn(turn, userMessage) {
         }));
       }
       messages.push(asstMsg);
-      await appendMessage(turn.workspace, turn.sessionId, asstMsg);
+      await appendMessage(turn.sessionId, asstMsg);
       turn.emit({ type: 'message_end', content: asstMsg.content });
 
       if (!asstMsg.tool_calls?.length) break;
@@ -209,7 +210,7 @@ export async function runTurn(turn, userMessage) {
         turn.emit({ type: 'tool_end', callId, name: toolName, status, result: resultText, diff });
         const toolMsg = { role: 'tool', tool_call_id: callId, name: toolName, content: resultText };
         messages.push(toolMsg);
-        await appendMessage(turn.workspace, turn.sessionId, toolMsg);
+        await appendMessage(turn.sessionId, toolMsg);
       }
     }
     turn.emit({ type: 'turn_end', stopped: turn.stopped, usage: turn.usage });
@@ -231,6 +232,7 @@ export async function startTurn({ sessionId, workspace, message, mode }) {
     if (!existing.finished) throw Object.assign(new Error('A turn is already running for this session'), { status: 409 });
   }
   const config = loadConfig();
+  ensureConversation(sessionId, { workspace, mode: 'code' });
   const turn = new Turn({
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     sessionId: String(sessionId),

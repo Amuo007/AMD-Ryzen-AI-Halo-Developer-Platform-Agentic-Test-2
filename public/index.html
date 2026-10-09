@@ -159,6 +159,7 @@
     <div class="settings-tabs" role="tablist">
       <button class="settings-tab active" data-tab="general">General</button>
       <button class="settings-tab" data-tab="prompt">Prompt</button>
+      <button class="settings-tab" data-tab="skills">Skills</button>
     </div>
     <form method="dialog" id="settings-form" class="settings-panel" data-panel="general">
       <label>Base URL<input id="set-baseurl" type="text" spellcheck="false" /></label>
@@ -193,6 +194,16 @@
         appended as project instructions; <code>~/.forge/append.md</code> extends every prompt.
       </p>
       <pre id="prompt-preview" class="prompt-preview"></pre>
+    </div>
+    <div class="settings-panel hidden" data-panel="skills">
+      <p class="hint">
+        Skills are folders with a <code>SKILL.md</code> (name + description in frontmatter, instructions
+        in the body) plus optional extra files. forge discovers
+        <code>&lt;workspace&gt;/.forge/skills/</code> and <code>~/.forge/skills/</code> — workspace skills
+        override global ones. Only the names and descriptions go into the model context; the agent loads
+        the full instructions with <code>use_skill</code> when a skill matches the work.
+      </p>
+      <div id="skills-list" class="skills-list"></div>
     </div>
   </dialog>
 

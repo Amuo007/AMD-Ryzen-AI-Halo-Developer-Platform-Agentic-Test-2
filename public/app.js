@@ -983,8 +983,77 @@ function openSettingsTab(name) {
 }
 
 function renderToolsTab() {}
-function renderSkillsTab() {}
 function renderContextSettingsTab() {}
+
+async function renderSkillsTab() {
+  const box = $('#skills-list');
+  if (!box) return;
+  box.innerHTML = '';
+  const ws = els.workspace.value.trim();
+  const wsq = ws ? `?workspace=${encodeURIComponent(ws)}` : '';
+  let skills = [];
+  try {
+    skills = (await api('GET', `/api/skills${wsq}`)).skills;
+  } catch (err) {
+    box.appendChild(el('div', { class: 'hint', text: `Failed to load skills: ${err.message}` }));
+    return;
+  }
+  if (!skills.length) {
+    box.appendChild(el('div', { class: 'hint', text: 'No skills found. Create ~/.forge/skills/<name>/SKILL.md with name + description frontmatter to add one.' }));
+    return;
+  }
+  for (const s of skills) {
+    const row = el('div', { class: 'skill-row' + (s.enabled ? '' : ' off') });
+    row.appendChild(
+      el('div', { class: 'skill-info' }, [
+        el('div', { class: 'skill-name' }, [
+          el('span', { class: 's-n', text: s.name }),
+          el('span', { class: `skill-src ${s.source}`, text: s.source }),
+        ]),
+        el('div', { class: 'skill-desc', text: s.description || '(no description)' }),
+      ])
+    );
+    row.appendChild(
+      el('button', {
+        class: 'btn ghost skill-view',
+        text: 'View',
+        onclick: async () => {
+          const existing = row.parentElement.querySelector('.skill-content');
+          if (existing) existing.remove();
+          if (row.__open) {
+            row.__open = false;
+            return;
+          }
+          row.__open = true;
+          const pre = el('pre', { class: 'prompt-preview skill-content', text: 'loading…' });
+          box.appendChild(pre);
+          try {
+            const data = await api('GET', `/api/skill?name=${encodeURIComponent(s.id)}${ws ? `&workspace=${encodeURIComponent(ws)}` : ''}`);
+            pre.textContent = data.content || '(empty)';
+          } catch (err) {
+            pre.textContent = `failed: ${err.message}`;
+          }
+        },
+      })
+    );
+    row.appendChild(
+      el('button', {
+        class: 'skill-toggle' + (s.enabled ? ' on' : ''),
+        title: s.enabled ? 'Disable this skill' : 'Enable this skill',
+        text: s.enabled ? 'On' : 'Off',
+        onclick: async () => {
+          try {
+            await api('POST', '/api/skills/enabled', { id: s.id, enabled: !s.enabled });
+            renderSkillsTab();
+          } catch (err) {
+            setStatusError(`Could not toggle skill: ${err.message}`);
+          }
+        },
+      })
+    );
+    box.appendChild(row);
+  }
+}
 
 async function renderPromptTab() {
   const modeEl = $('#prompt-mode');

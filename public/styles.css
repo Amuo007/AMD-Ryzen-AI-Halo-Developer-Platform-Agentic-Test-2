@@ -360,6 +360,19 @@ dialog h2 { margin: 0 0 14px; font-family: var(--serif); }
 .prompt-src-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .prompt-src-row .inline-label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; margin: 0; }
 .prompt-preview { font-family: var(--mono); font-size: 12px; line-height: 1.5; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 10px 0 0; }
+
+/* skills tab */
+.skills-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 380px; overflow-y: auto; scrollbar-width: thin; }
+.skill-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; background: var(--bg-card); }
+.skill-row.off { opacity: 0.55; }
+.skill-info { flex: 1; min-width: 0; }
+.skill-name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
+.skill-src { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+.skill-src.workspace { color: var(--accent); border-color: var(--accent); }
+.skill-desc { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; white-space: pre-wrap; }
+.skill-toggle { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-dim); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
+.skill-toggle.on { color: var(--ok); border-color: var(--ok); }
+.skill-view { padding: 4px 10px; font-size: 12.5px; }
 dialog form label { display: block; margin-bottom: 10px; font-size: 13px; }
 dialog form label input { display: block; width: 100%; margin-top: 4px; }
 dialog form .row { display: flex; gap: 12px; }

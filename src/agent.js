@@ -3,6 +3,7 @@ import { runTool, toolDefs } from './tools/index.js';
 import { decidePermission, describeToolCall } from './permissions.js';
 import { trimContext } from './context.js';
 import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory.js';
+import { discoverSkills, skillsSectionText } from './skills.js';
 import { appendMessage, getConversation } from './db.js';
 import { ensureConversation } from './conversations.js';
 import { loadConfig } from './config.js';
@@ -128,7 +129,8 @@ export async function runTurn(turn, userMessage) {
   messages.push({ role: 'user', content: userMessage });
 
   const agentsMd = isChat ? null : await loadAgentsMd(turn.workspace);
-  const systemPrompt = isChat ? await buildChatSystemPrompt() : await buildSystemPrompt({ workspace: turn.workspace, agentsMd });
+  const skillsSection = isChat ? null : skillsSectionText(await discoverSkills({ workspace: turn.workspace }));
+  const systemPrompt = isChat ? await buildChatSystemPrompt() : await buildSystemPrompt({ workspace: turn.workspace, agentsMd, skillsSection });
 
   let stepUsage = null;
   try {

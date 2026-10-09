@@ -60,6 +60,7 @@ const DEFAULT_ROUTES = [
   ['/api/stats', { user: 'amrinder', sessions: 0, messages: 0, totalTokens: 0, activeDays: 0, peakHour: null, favoriteModel: null, models: [], heatmap: [] }],
   ['/api/sessions', { sessions: [] }],
   ['/api/prompt', { mode: 'code', source: 'default', path: '/repo/prompt/system.md', text: '# forge — Code mode system prompt\n\nYou are forge.', locations: { default: '/repo/prompt', global: '/home/.forge', workspace: '/ws/.forge' } }],
+  ['/api/skills', { skills: [{ id: 'demo', name: 'Demo', description: 'demo skill', source: 'global', enabled: true }] }],
 ];
 
 export async function bootApp({ storage = {}, fetchStub } = {}) {

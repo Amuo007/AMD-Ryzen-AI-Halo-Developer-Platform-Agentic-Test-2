@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/system-prompt`
-- Doing: task 2 — system prompt as markdown file with workspace/global override chain
-- Half-done: nothing; task 1 (tools v2) merged, 135 tests green
+- Branch: `feat/skills`
+- Doing: task 3 — skills folders with SKILL.md, discovery, use_skill tool, Settings tab
+- Half-done: nothing; tasks 1–2 merged, 145 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -23,11 +23,11 @@
 - [x] Tests for all of the above; npm test green (135); merge to main + push
 
 ## 2. System prompt as a markdown file (`feat/system-prompt`)
-- [ ] `prompt/system.md` (Code) + `prompt/chat.md` (Chat) written as proper agent prompts
-- [ ] `src/prompt.js`: resolution: workspace `.forge/system.md` → global `~/.forge/system.md` → repo default; AGENTS.md appended (extend)
-- [ ] `GET /api/prompt?workspace=` returns source + effective text
-- [ ] Settings: "Prompt" tab showing the effective prompt + which file wins
-- [ ] Tests; merge + push
+- [x] `prompt/system.md` (Code) + `prompt/chat.md` (Chat) written as proper agent prompts
+- [x] `src/prompt.js`: resolution: workspace `.forge/system.md` → global `~/.forge/system.md` → repo default; AGENTS.md appended (extend)
+- [x] `GET /api/prompt?workspace=` returns source + effective text
+- [x] Settings: "Prompt" tab showing the effective prompt + which file wins
+- [x] Tests; merge + push
 
 ## 3. Skills (`feat/skills`)
 - [ ] `src/skills.js`: discover `<ws>/.forge/skills/<id>/SKILL.md` + `~/.forge/skills/`, frontmatter parse, workspace overrides global
@@ -35,7 +35,7 @@
 - [ ] `use_skill` tool: load a skill's full instructions (+ extra files in its folder)
 - [ ] Enable/disable persisted (settings); `GET /api/skills`, `POST /api/skills/enabled`, `GET /api/skill`
 - [ ] Settings: "Skills" tab — list, view, toggle
-- [ ] Tests; merge + push
+- [x] Tests; merge + push
 
 ## 4. Tool access & extensibility (`feat/tool-policy`, `feat/mcp`)
 - [ ] Tool enable/disable in Settings (persisted); defs filtered per turn; disabled-tool calls get a clear error

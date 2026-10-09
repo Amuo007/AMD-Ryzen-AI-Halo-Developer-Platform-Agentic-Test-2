@@ -48,13 +48,14 @@ export function checkDenyList(command) {
  *  - full      : everything allowed (deny list still applies).
  * alwaysAllow: Set of tool names the user approved with "always allow".
  */
-export function decidePermission({ mode, toolName, args, alwaysAllow = new Set() }) {
+export function decidePermission({ mode, toolName, args, alwaysAllow = new Set(), readOnly = false }) {
   if (toolName === 'run_shell') {
     const deny = checkDenyList(args?.command);
     if (deny.blocked) return { action: 'deny', reason: deny.why };
   }
   if (mode === 'full') return { action: 'allow' };
   if (alwaysAllow.has(toolName)) return { action: 'allow' };
+  if (readOnly) return { action: 'allow' }; // e.g. MCP tools with readOnlyHint
   if (mode === 'auto-edit') {
     if (toolName === 'run_shell') return { action: 'ask' };
     return { action: 'allow' };

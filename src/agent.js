@@ -1,5 +1,6 @@
 import { streamChatCompletion } from './llm.js';
-import { runTool, activeToolDefs } from './tools/index.js';
+import { runTool, activeToolList } from './tools/index.js';
+import { mcpIsReadOnly } from './mcp.js';
 import { decidePermission, describeToolCall } from './permissions.js';
 import { trimContext } from './context.js';
 import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory.js';
@@ -143,7 +144,7 @@ export async function runTurn(turn, userMessage) {
         apiKey: config.apiKey,
         model: config.model,
         messages: context,
-        tools: isChat ? undefined : activeToolDefs(),
+        tools: isChat ? undefined : await activeToolList(turn.workspace),
         signal,
         onText: (t) => turn.emit({ type: 'text_delta', text: t }),
         onReasoning: (t) => turn.emit({ type: 'reasoning_delta', text: t }),
@@ -195,7 +196,7 @@ export async function runTurn(turn, userMessage) {
         }
 
         if (status !== 'error') {
-          const decision = decidePermission({ mode: turn.mode, toolName, args: parsed, alwaysAllow: turn.alwaysAllow });
+          const decision = decidePermission({ mode: turn.mode, toolName, args: parsed, alwaysAllow: turn.alwaysAllow, readOnly: toolName.startsWith('mcp__') && mcpIsReadOnly(toolName) });
           if (decision.action === 'deny') {
             status = 'denied';
             resultText = `Blocked by deny-list: ${decision.reason}. This command is forbidden in every permission mode; do not retry it.`;

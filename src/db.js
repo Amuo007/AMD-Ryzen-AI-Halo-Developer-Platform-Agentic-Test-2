@@ -31,6 +31,7 @@ export function openDatabase(file) {
       title      TEXT NOT NULL DEFAULT 'New conversation',
       mode       TEXT NOT NULL DEFAULT 'code',
       workspace  TEXT,
+      reasoning  TEXT NOT NULL DEFAULT 'auto',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -60,6 +61,9 @@ export function openDatabase(file) {
       updated_at      TEXT NOT NULL
     );
   `);
+  // migrations for databases created before a column existed
+  const convCols = db.prepare('PRAGMA table_info(conversations)').all().map((c) => c.name);
+  if (!convCols.includes('reasoning')) db.exec("ALTER TABLE conversations ADD COLUMN reasoning TEXT NOT NULL DEFAULT 'auto'");
   return db;
 }
 
@@ -151,17 +155,18 @@ function rowToConversation(row) {
     title: row.title,
     mode: row.mode,
     workspace: row.workspace,
+    reasoning: row.reasoning || 'auto',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export function createConversation({ id, title = 'New conversation', mode = 'code', workspace = null, createdAt = null }) {
+export function createConversation({ id, title = 'New conversation', mode = 'code', workspace = null, reasoning = 'auto', createdAt = null }) {
   const now = createdAt ?? new Date().toISOString();
   getDb()
-    .prepare('INSERT INTO conversations (id, title, mode, workspace, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(id, title, mode === 'chat' ? 'chat' : 'code', workspace, now, now);
-  return { id, title, mode: mode === 'chat' ? 'chat' : 'code', workspace, createdAt: now, updatedAt: now };
+    .prepare('INSERT INTO conversations (id, title, mode, workspace, reasoning, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(id, title, mode === 'chat' ? 'chat' : 'code', workspace, reasoning, now, now);
+  return { id, title, mode: mode === 'chat' ? 'chat' : 'code', workspace, reasoning, createdAt: now, updatedAt: now };
 }
 
 export function getConversation(id) {
@@ -175,6 +180,10 @@ export function conversationExists(id) {
 
 export function renameConversation(id, title) {
   getDb().prepare('UPDATE conversations SET title = ? WHERE id = ?').run(String(title).slice(0, 200), String(id));
+}
+
+export function setConversationReasoning(id, reasoning) {
+  getDb().prepare('UPDATE conversations SET reasoning = ? WHERE id = ?').run(String(reasoning), String(id));
 }
 
 export function touchConversation(id, { mode, workspace } = {}) {

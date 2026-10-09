@@ -198,3 +198,29 @@ test('streamChatCompletion: abort signal stops the request', async () => {
     await mock.close();
   }
 });
+
+test('reasoning control maps to real request parameters', async () => {
+  const mock = await startMockLLM(() => ({ chunks: [...textChunks('ok'), deltaChunk({}, 'stop')] }));
+  try {
+    const call = async (reasoning) => {
+      const opts = { baseURL: mock.url, apiKey: 'k', model: 'm', messages: [{ role: 'user', content: 'x' }] };
+      if (reasoning !== undefined) opts.reasoning = reasoning;
+      await streamChatCompletion(opts);
+      return mock.requests.at(-1);
+    };
+    const auto = await call('auto');
+    assert.ok(!('chat_template_kwargs' in auto), 'auto sends no thinking overrides');
+    assert.ok(!('reasoning_effort' in auto));
+    const off = await call('off');
+    assert.deepEqual(off.chat_template_kwargs, { thinking: false });
+    assert.ok(!('reasoning_effort' in off));
+    const low = await call('low');
+    assert.deepEqual(low.chat_template_kwargs, { thinking: true });
+    assert.equal(low.reasoning_effort, 'low');
+    const high = await call('high');
+    assert.deepEqual(high.chat_template_kwargs, { thinking: true });
+    assert.equal(high.reasoning_effort, 'high');
+  } finally {
+    await mock.close();
+  }
+});

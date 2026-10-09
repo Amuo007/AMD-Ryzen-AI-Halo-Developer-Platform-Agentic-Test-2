@@ -28,6 +28,7 @@ const els = {
   userName: $('#user-name'),
   userAvatar: $('#user-avatar'),
   modeWrap: $('#mode-wrap'),
+  reasoning: $('#reasoning-select'),
   tokens: $('#status-tokens'),
   statusError: $('#status-error'),
   modeSelect: $('#mode-select'),
@@ -225,8 +226,8 @@ function clearMessages() {
 }
 
 function appendUser(message) {
+  finalizeThinking();
   state.assistantEl = null;
-  state.thinkingEl = null;
   const wrap = el('div', { class: 'msg msg-user' }, [el('div', { class: 'bubble', text: message })]);
   els.messages.appendChild(wrap);
   scrollTop();
@@ -255,14 +256,35 @@ function appendReasoning(text) {
   let t = state.thinkingEl;
   if (!t) {
     const bubble = ensureAssistant();
-    t = el('div', { class: 'thinking' });
-    bubble.appendChild(t);
+    const details = el('details', { class: 'think-block' });
+    details.open = true;
+    const label = el('span', { class: 'think-label', text: 'Thinking…' });
+    const summary = el('summary', { class: 'think-summary' }, [el('span', { class: 'think-ico', text: '◍' }), label]);
+    const body = el('div', { class: 'think-body' });
+    details.appendChild(summary);
+    details.appendChild(body);
+    bubble.appendChild(details);
+    t = { details, summary, label, body, startedAt: Date.now() };
+    t.timer = setInterval(() => {
+      const secs = Math.max(1, Math.round((Date.now() - t.startedAt) / 1000));
+      label.textContent = `Thinking… ${secs}s`;
+    }, 1000);
     state.thinkingEl = t;
   }
-  t.textContent += text;
+  t.body.textContent += text;
   scrollTop();
 }
+function finalizeThinking() {
+  const t = state.thinkingEl;
+  if (!t) return;
+  clearInterval(t.timer);
+  const secs = Math.max(1, Math.round((Date.now() - t.startedAt) / 1000));
+  t.label.textContent = `Thought for ${secs}s`;
+  t.details.open = false;
+  state.thinkingEl = null;
+}
 function endAssistant(mid) {
+  finalizeThinking();
   const bubble = state.assistantEl;
   if (bubble) {
     bubble.classList.remove('cursor');
@@ -270,7 +292,6 @@ function endAssistant(mid) {
     state.lastAssistantBubble = bubble;
   }
   state.assistantEl = null;
-  state.thinkingEl = null;
 }
 function attachActions(bubble, mid) {
   const wrap = bubble.parentElement;
@@ -453,13 +474,14 @@ function renderEvent(ev) {
       break;
     case 'text_delta':
       setMascotState('talking');
-      state.thinkingEl = null;
+      finalizeThinking();
       appendText(ev.text);
       break;
     case 'message_end':
       endAssistant(ev.messageId);
       break;
     case 'tool_args_delta': {
+      finalizeThinking();
       const idx = ev.callIndex ?? 0;
       let card = state.pendingToolCards.get(idx);
       if (!card) {
@@ -478,6 +500,7 @@ function renderEvent(ev) {
       break;
     }
     case 'tool_start': {
+      finalizeThinking();
       let card = state.cardsByCallId.get(ev.callId) || state.pendingToolCards.get(0);
       if (!card || card.__callId !== ev.callId) {
         card = null;
@@ -790,6 +813,7 @@ async function openSession(id) {
   disconnectEvents();
   state.sessionId = id;
   setAgentMode(session.mode, false);
+  if (session.reasoning !== undefined) els.reasoning.value = session.reasoning || 'auto';
   if (session.workspace) els.workspace.value = session.workspace;
   localStorage.setItem('forge-last-session-' + (session.workspace || 'chat'), id);
   clearMessages();
@@ -893,6 +917,7 @@ async function send() {
       agentMode: state.agentMode,
       workspace: state.agentMode === 'code' ? els.workspace.value.trim() : undefined,
       mode: els.modeSelect.value,
+      reasoning: els.reasoning.value,
     });
     setStatusError('');
   } catch (err) {
@@ -1190,6 +1215,7 @@ function autosize() {
 
 async function init() {
   els.modeSelect.value = localStorage.getItem('forge-mode') || 'ask';
+  els.reasoning.value = localStorage.getItem('forge-reasoning') || 'auto';
   els.workspace.value = localStorage.getItem('forge-workspace') || '';
 
   els.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
@@ -1220,6 +1246,7 @@ async function init() {
     loadSessions();
   });
   els.modeSelect.addEventListener('change', () => localStorage.setItem('forge-mode', els.modeSelect.value));
+  els.reasoning.addEventListener('change', () => localStorage.setItem('forge-reasoning', els.reasoning.value));
   els.input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();

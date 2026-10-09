@@ -158,6 +158,7 @@ export function createRequestHandler() {
           workspace = ws.resolved;
         }
         const mode = ['ask', 'auto-edit', 'full'].includes(body.mode) ? body.mode : 'ask';
+        const reasoning = ['auto', 'high', 'low', 'off'].includes(body.reasoning) ? body.reasoning : null;
         const sessionId = body.sessionId ? String(body.sessionId) : null;
         if (sessionId && getTurn(sessionId) && !getTurn(sessionId).finished) {
           return sendJson(res, 409, { error: 'a turn is already running for this session' });
@@ -165,11 +166,11 @@ export function createRequestHandler() {
         const sid = sessionId ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         let turn;
         try {
-          turn = await startTurn({ sessionId: sid, workspace, message: body.message.trim(), mode, agentMode });
+          turn = await startTurn({ sessionId: sid, workspace, message: body.message.trim(), mode, agentMode, reasoning: reasoning ?? undefined });
         } catch (err) {
           return sendJson(res, err.status ?? 500, { error: err.message });
         }
-        return sendJson(res, 202, { sessionId: sid, turnId: turn.id });
+        return sendJson(res, 202, { sessionId: sid, turnId: turn.id, reasoning: turn.reasoning });
       }
 
       if (req.method === 'GET' && p === '/api/events') {

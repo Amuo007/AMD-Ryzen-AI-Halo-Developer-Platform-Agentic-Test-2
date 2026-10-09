@@ -167,8 +167,8 @@ export async function runTurn(turn, userMessage) {
         }));
       }
       messages.push(asstMsg);
-      await appendMessage(turn.sessionId, asstMsg, { model: config.model, usage: stepUsage });
-      turn.emit({ type: 'message_end', content: asstMsg.content });
+      const mid = await appendMessage(turn.sessionId, asstMsg, { model: config.model, usage: stepUsage });
+      turn.emit({ type: 'message_end', content: asstMsg.content, messageId: mid });
 
       if (!asstMsg.tool_calls?.length) break;
       if (isChat) break; // Chat mode never executes tools

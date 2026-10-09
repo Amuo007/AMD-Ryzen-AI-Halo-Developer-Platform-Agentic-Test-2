@@ -6,18 +6,14 @@ import path from 'node:path';
 const pub = (f) => fs.readFileSync(path.join(process.cwd(), 'public', f), 'utf8');
 
 test('tool cards: collapsible card with name, args, status, result and red/green diff', () => {
-  const html = pub('index.html');
   const app = pub('app.js');
-  assert.match(app, /tool-card/);
-  assert.match(app, /tool_status|tool-status/);
-  // collapsible via <details>
   assert.match(app, /buildToolCard/);
+  assert.match(app, /tool-status/);
   assert.match(app, /diff-line/);
-  // diff colors come from CSS
   const css = pub('styles.css');
   assert.match(css, /\.diff-line\.add/);
   assert.match(css, /\.diff-line\.del/);
-  assert.match(html, /id="messages"/);
+  assert.match(pub('index.html'), /id="messages"/);
 });
 
 test('permission dialog: allow / deny / always-allow buttons exist', () => {
@@ -36,32 +32,96 @@ test('stop button + Esc shortcut exist and target /api/stop', () => {
   assert.match(app, /Escape/);
 });
 
-test('status bar shows model, mode selector, tokens, error', () => {
+test('permission mode selector with ask/auto-edit/full exists in composer', () => {
   const html = pub('index.html');
-  assert.match(html, /id="status-model"/);
   assert.match(html, /id="mode-select"/);
   assert.match(html, /value="ask"/);
   assert.match(html, /value="auto-edit"/);
   assert.match(html, /value="full"/);
-  assert.match(html, /id="status-tokens"/);
-  assert.match(html, /id="status-error"/);
 });
 
-test('dark and light themes defined, toggle wired', () => {
+test('dark and light themes defined, light default, toggle wired', () => {
   const css = pub('styles.css');
   assert.match(css, /\[data-theme='dark'\]/);
   assert.match(css, /\[data-theme='light'\]/);
   const app = pub('app.js');
   assert.match(app, /applyTheme/);
-  const html = pub('index.html');
-  assert.match(html, /id="theme-toggle"/);
+  assert.match(pub('index.html'), /data-theme="light"/);
 });
 
-test('sidebar: new chat, sessions list, settings, workspace picker', () => {
+test('mode switch: chat and code buttons, per-conversation mode applied on open', () => {
   const html = pub('index.html');
-  assert.match(html, /id="new-chat"/);
-  assert.match(html, /id="session-list"/);
-  assert.match(html, /id="settings-btn"/);
-  assert.match(html, /id="workspace-input"/);
-  assert.match(html, /id="browse-btn"/);
+  const app = pub('app.js');
+  assert.match(html, /id="mode-chat-btn"/);
+  assert.match(html, /id="mode-code-btn"/);
+  assert.match(app, /setAgentMode/);
+  // switching persists and passes agentMode to the API
+  assert.match(app, /agentMode: state\.agentMode/);
+  assert.match(app, /localStorage\.setItem\('forge-agent-mode'/);
+  // opening a session adopts its stored mode
+  assert.match(app, /setAgentMode\(session\.mode/);
+});
+
+test('greeting screens: chat "Good <time>" and code "What\'s up next"', () => {
+  const app = pub('app.js');
+  assert.match(app, /renderWelcome/);
+  assert.match(app, /Good \$\{greetingWord\(\)\}/);
+  assert.match(app, /What's up next\?/);
+  assert.match(app, /class: 'greeting'/);
+});
+
+test('stats dashboard: tabs, range selector, tiles and heatmap', () => {
+  const app = pub('app.js');
+  assert.match(app, /\/api\/stats/);
+  assert.match(app, /Stats|stats-tab/);
+  assert.match(app, /renderHeatmap/);
+  assert.match(app, /heat-cell/);
+  assert.match(app, /Favorite model/);
+  assert.match(app, /Peak hour/);
+  const css = pub('styles.css');
+  assert.match(css, /\.stats-card/);
+  assert.match(css, /\.heat-cell/);
+});
+
+test('markdown rendering: headings, lists, bold/italic, inline code, links, fences, escaping', () => {
+  const app = pub('app.js');
+  assert.match(app, /function renderMarkdown/);
+  assert.match(app, /function renderText/);
+  assert.match(app, /inlineMd/);
+  assert.match(app, /function esc\(/);
+});
+
+test('assistant message actions: copy, thumbs up/down, and feedback posts', () => {
+  const app = pub('app.js');
+  assert.match(app, /msg-actions/);
+  assert.match(app, /navigator\.clipboard/);
+  assert.match(app, /\/api\/feedback/);
+  assert.match(app, /function rate/);
+});
+
+test('aggregate edit summary card: edited N files with +add / -del per file', () => {
+  const app = pub('app.js');
+  assert.match(app, /renderEditsSummary/);
+  assert.match(app, /edits-card/);
+  assert.match(app, /Edited \$\{list\.length\}/);
+  const css = pub('styles.css');
+  assert.match(css, /\.edits-card/);
+});
+
+test('date-grouped session list: Today / Yesterday / dated groups with delete', () => {
+  const app = pub('app.js');
+  assert.match(app, /dateBucket/);
+  assert.match(app, /'Today'/);
+  assert.match(app, /'Yesterday'/);
+  assert.match(app, /removeSession/);
+  assert.match(app, /s-del/);
+});
+
+test('composer: textarea, send + stop, scroll-to-bottom button', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="input"/);
+  assert.match(html, /id="send-btn"/);
+  assert.match(html, /id="scroll-bottom"/);
+  const app = pub('app.js');
+  assert.match(app, /autosize/);
 });

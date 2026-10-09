@@ -141,6 +141,43 @@ test('code mode still requires a valid workspace', async () => {
   assert.equal(noWs.status, 400);
 });
 
+test('stats endpoint aggregates sessions/messages/tokens', async () => {
+  const st = await req('GET', '/api/stats?range=all');
+  assert.equal(st.status, 200);
+  assert.equal(typeof st.data.sessions, 'number');
+  assert.equal(typeof st.data.messages, 'number');
+  assert.equal(typeof st.data.totalTokens, 'number');
+  assert.ok(Array.isArray(st.data.heatmap));
+  assert.ok(typeof st.data.user === 'string' && st.data.user.length > 0);
+  // we have run chat + full tool sessions already, so counts are > 0
+  assert.ok(st.data.sessions >= 2, `sessions=${st.data.sessions}`);
+  assert.ok(st.data.messages >= 2);
+  assert.ok(st.data.totalTokens >= 11);
+  const bad = await req('GET', '/api/stats?range=bogus');
+  assert.equal(bad.data.range, 'all');
+});
+
+test('feedback: thumbs up/down stored on a message id', async () => {
+  const sessionId = 'apitest-feedback';
+  mockHandler = () => ({ chunks: [...textChunks('an answer to rate'), deltaChunk({}, 'stop')] });
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  await req('POST', '/api/chat', { sessionId, agentMode: 'chat', message: 'rate me' });
+  const events = await sseCollect({ sessionId, until: untilEnd });
+  const mid = events.find((e) => e.type === 'message_end')?.messageId;
+  assert.ok(mid, 'assistant message has an id');
+  const up = await req('POST', '/api/feedback', { messageId: mid, feedback: 'up' });
+  assert.equal(up.status, 200);
+  let s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  const asst = s.data.session.messages.find((m) => m.role === 'assistant');
+  assert.equal(asst.feedback, 'up');
+  await req('POST', '/api/feedback', { messageId: mid, feedback: 'down' });
+  s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  assert.equal(s.data.session.messages.find((m) => m.role === 'assistant').feedback, 'down');
+  await req('POST', '/api/feedback', { messageId: mid, feedback: null });
+  s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  assert.equal(s.data.session.messages.find((m) => m.role === 'assistant').feedback, null);
+});
+
 test.after(async () => {
   await forge?.close();
   await mock?.close();
@@ -156,7 +193,6 @@ test('static: index, css, js served', async () => {
   assert.match(idx.body, /id="settings-btn"/);
   assert.match(idx.body, /id="mode-select"/);
   assert.match(idx.body, /id="stop-btn"/);
-  assert.match(idx.body, /id="statusbar"/);
   assert.match(idx.body, /id="theme-toggle"/);
   const css = await get('/styles.css');
   assert.equal(css.status, 200);

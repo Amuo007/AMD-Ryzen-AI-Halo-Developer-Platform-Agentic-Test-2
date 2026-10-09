@@ -79,6 +79,17 @@
   opens the full diff. Language badge derived from the file extension.
 - Sidebar sessions are **grouped by date** (Today / Yesterday / `Mon D` [ / year]) with
   hover-delete.
+- **Mascot**: a small robot (recreated as inline SVG from the provided avatar image —
+  halo, headphone ears, cream screen face, chest ring) sits in the composer next to the
+  input. Pure SVG + CSS keyframes, zero JS animation loops: `setMascotState()` just sets
+  `data-state` on the svg and CSS swaps animations — idle = breathe + blink, typing =
+  attentive trot, waiting = glowing halo pulse, thinking = head tilt + eye dart, talking =
+  mouth flap; `transition` on the parts makes switches smooth; everything is disabled
+  under `prefers-reduced-motion`. Art uses fixed warm oranges that read on both themes;
+  the waiting glow is the accent orange. States are driven by real events (input, send,
+  `reasoning_delta`/`text_delta`/`turn_end`/permission SSE). The headless test harness
+  boots `app.js` in a `node:vm` DOM stub and asserts the state machine — static regex
+  tests had previously missed a runtime crash in `renderWelcome`.
 - **Tool cards** are `<details>`: name, live-streaming args, status pill, result, and a
   real LCS line-diff (red/green) for write/edit. Cards auto-expand on error/denied.
 - **Permission dialogs** live inline in the chat (not a modal) so they survive reload via

@@ -36,7 +36,11 @@ The server binds to **127.0.0.1 only** — it never exposes anything on your LAN
    turn's edits into an "Edited N files" summary card, and asks for approval when the
    current mode requires it. **Stop** (or `Esc`) cancels a running turn, including a
    running shell command. Rate answers 👍/👎 under each reply.
-5. A fresh **Code** session opens with a **usage dashboard**: sessions / messages / total
+5. The little **mascot** next to the input box reacts to what's happening: it breathes and
+   blinks while idle, perks up while you type, pulses its halo while waiting for the
+   server, tilts and darts its eyes while the model reasons, and talks while the answer
+   streams — then settles back to idle.
+6. A fresh **Code** session opens with a **usage dashboard**: sessions / messages / total
    tokens / active days / peak hour / favorite-model tiles and a 13-week activity
    heatmap, filterable by All / 30d / 7d.
 
@@ -94,7 +98,7 @@ All file tools resolve `..` **and symlinks** and refuse anything outside the wor
 ## Tests
 
 ```bash
-npm test   # node --test: 123 unit, API and end-to-end (mock OpenAI server) tests
+npm test   # node --test: 126 unit, API and end-to-end (mock OpenAI server) tests
 ```
 
 ## Architecture

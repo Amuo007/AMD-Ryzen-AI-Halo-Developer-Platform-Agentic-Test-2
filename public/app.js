@@ -982,7 +982,64 @@ function openSettingsTab(name) {
   if (name === 'context') renderContextSettingsTab();
 }
 
-function renderToolsTab() {}
+function renderToolsTab() {
+  renderToolsList();
+}
+
+async function renderToolsList() {
+  const box = $('#tools-list');
+  if (!box) return;
+  box.innerHTML = '';
+  let data;
+  try {
+    data = await api('GET', '/api/tools');
+  } catch (err) {
+    box.appendChild(el('div', { class: 'hint', text: `Failed to load tools: ${err.message}` }));
+    return;
+  }
+  for (const t of data.tools) {
+    box.appendChild(toolRow(t, () => renderToolsList()));
+  }
+  const servers = (data.mcp && data.mcp.servers) || [];
+  if (servers.length) {
+    box.appendChild(el('div', { class: 'group-label tools-mcp-head', text: 'MCP servers' }));
+    for (const s of servers) {
+      const tools = (data.mcp.tools || []).filter((t) => t.server === s.name);
+      box.appendChild(
+        el('div', { class: 'skill-row' }, [
+          el('div', { class: 'skill-info' }, [
+            el('div', { class: 'skill-name' }, [el('span', { class: 's-n', text: s.name }), el('span', { class: `mcp-status ${s.status}`, text: s.status })]),
+            el('div', { class: 'skill-desc', text: s.error || `${tools.length} tool${tools.length === 1 ? '' : 's'}` }),
+          ]),
+        ])
+      );
+      for (const t of tools) box.appendChild(toolRow(t, () => renderToolsList()));
+    }
+  }
+}
+
+function toolRow(t, refresh) {
+  return el('div', { class: 'skill-row' + (t.enabled ? '' : ' off') }, [
+    el('div', { class: 'skill-info' }, [
+      el('div', { class: 'skill-name' }, [el('span', { class: 's-n', text: t.name })]),
+      el('div', { class: 'skill-desc', text: t.description }),
+    ]),
+    el('button', {
+      class: 'skill-toggle' + (t.enabled ? ' on' : ''),
+      title: t.enabled ? 'Disable this tool' : 'Enable this tool',
+      text: t.enabled ? 'On' : 'Off',
+      onclick: async () => {
+        try {
+          await api('POST', '/api/tools/enabled', { name: t.name, enabled: !t.enabled });
+          refresh();
+        } catch (err) {
+          setStatusError(`Could not toggle tool: ${err.message}`);
+        }
+      },
+    }),
+  ]);
+}
+
 function renderContextSettingsTab() {}
 
 async function renderSkillsTab() {

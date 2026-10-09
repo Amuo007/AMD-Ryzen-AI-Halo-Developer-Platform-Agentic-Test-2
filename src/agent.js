@@ -1,5 +1,5 @@
 import { streamChatCompletion } from './llm.js';
-import { runTool, toolDefs } from './tools/index.js';
+import { runTool, activeToolDefs } from './tools/index.js';
 import { decidePermission, describeToolCall } from './permissions.js';
 import { trimContext } from './context.js';
 import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory.js';
@@ -143,7 +143,7 @@ export async function runTurn(turn, userMessage) {
         apiKey: config.apiKey,
         model: config.model,
         messages: context,
-        tools: isChat ? undefined : toolDefs,
+        tools: isChat ? undefined : activeToolDefs(),
         signal,
         onText: (t) => turn.emit({ type: 'text_delta', text: t }),
         onReasoning: (t) => turn.emit({ type: 'reasoning_delta', text: t }),

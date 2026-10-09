@@ -179,6 +179,22 @@ test('run_shell stops on abort signal', async () => {
   assert.match(res.content, /STOPPED/);
 });
 
+test('tool enable/disable policy: defs filter + run rejection', async () => {
+  const { setToolEnabled, getDisabledTools, activeToolDefs, isToolEnabled } = await import('../src/tools/index.js');
+  setToolEnabled('run_shell', false);
+  assert.deepEqual(getDisabledTools(), ['run_shell']);
+  assert.equal(isToolEnabled('run_shell'), false);
+  assert.equal(activeToolDefs().some((d) => d.function.name === 'run_shell'), false);
+  assert.ok(activeToolDefs().some((d) => d.function.name === 'read_file'));
+  const res = await runTool('run_shell', { workspace: tmpws() }, { command: 'echo nope' });
+  assert.equal(res.ok, false);
+  assert.match(res.content, /disabled by the user/);
+  setToolEnabled('run_shell', true);
+  assert.deepEqual(getDisabledTools(), []);
+  const ok = await runTool('run_shell', { workspace: tmpws() }, { command: 'echo yes' });
+  assert.equal(ok.ok, true);
+});
+
 test('unknown tool returns clear error', async () => {
   const res = await runTool('no_such_tool', { workspace: tmpws() }, {});
   assert.equal(res.ok, false);

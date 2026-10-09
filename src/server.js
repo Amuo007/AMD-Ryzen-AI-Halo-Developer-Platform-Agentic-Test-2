@@ -11,6 +11,8 @@ import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
 import { resolvePrompt, promptLocations } from './prompt.js';
 import { discoverSkills, setSkillEnabled, useSkill } from './skills.js';
+import { mcpStatus } from './mcp.js';
+import { toolDefs, getDisabledTools, setToolEnabled } from './tools/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -242,6 +244,19 @@ export function createRequestHandler() {
         if (!ws.ok) return sendJson(res, 400, { error: ws.error });
         const resolved = await resolvePrompt({ mode, workspace: ws.resolved });
         return sendJson(res, 200, { mode, ...resolved, locations: promptLocations(ws.resolved) });
+      }
+
+      if (req.method === 'GET' && p === '/api/tools') {
+        const disabled = new Set(getDisabledTools());
+        const tools = toolDefs.map((d) => ({ name: d.function.name, description: d.function.description, enabled: !disabled.has(d.function.name) }));
+        return sendJson(res, 200, { tools, mcp: mcpStatus() });
+      }
+      if (req.method === 'POST' && p === '/api/tools/enabled') {
+        const body = await readBody(req);
+        const name = String(body.name ?? '');
+        if (!name) return sendJson(res, 400, { error: 'name is required' });
+        const disabled = setToolEnabled(name, body.enabled === true);
+        return sendJson(res, 200, { ok: true, disabled });
       }
 
       if (req.method === 'GET' && p === '/api/skills') {

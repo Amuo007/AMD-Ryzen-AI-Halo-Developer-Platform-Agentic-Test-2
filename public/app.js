@@ -82,6 +82,8 @@ function setRunning(running) {
   state.running = running;
   els.stop.classList.toggle('hidden', !running);
   els.send.disabled = running;
+  els.stop.disabled = false;
+  els.stop.textContent = '■ Stop';
 }
 
 function theme() {
@@ -464,7 +466,9 @@ function newSessionId() {
 }
 
 async function stop() {
-  if (!state.sessionId) return;
+  if (!state.sessionId || !state.running) return;
+  els.stop.disabled = true;
+  els.stop.textContent = '■ Stopping…';
   try {
     await api('POST', '/api/stop', { sessionId: state.sessionId });
   } catch (err) {

@@ -6,9 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 const tmpHome = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-e2e-'));
-process.env.FORGE_CONFIG = path.join(tmpHome, 'config.json');
+process.env.FORGE_DATA_DIR = tmpHome;
 
 const { startServer } = await import('../src/server.js');
+const { setSetting } = await import('../src/db.js');
 const { startMockLLM, deltaChunk, textChunks, toolCallChunks, usageChunk } = await import('./helpers/mock-llm.js');
 
 async function tmpws() {
@@ -103,7 +104,7 @@ test('e2e: create hello.txt then read it back (full access)', async () => {
     assert.equal(end.usage.totalTokens, 120);
 
     // session persisted end-to-end
-    const s = await fetch(`http://127.0.0.1:${port}/api/session?workspace=${encodeURIComponent(ws)}&sessionId=${sessionId}`);
+    const s = await fetch(`http://127.0.0.1:${port}/api/session?sessionId=${sessionId}`);
     const { session } = await s.json();
     assert.equal(session.messages.length, 6); // user, asst, tool, asst, tool, asst final
     assert.equal(session.messages[0].content, 'Create hello.txt containing the word hello, then read it back');
@@ -114,7 +115,7 @@ test('e2e: create hello.txt then read it back (full access)', async () => {
 });
 
 test('e2e: max steps limit is enforced', async () => {
-  await fsp.writeFile(process.env.FORGE_CONFIG, JSON.stringify({ maxSteps: 3 }));
+  setSetting('maxSteps', 3);
   const ws = await tmpws();
   const mock = await startMockLLM((body) => {
     // never stop calling tools
@@ -138,7 +139,7 @@ test('e2e: max steps limit is enforced', async () => {
   } finally {
     await close();
     await mock.close();
-    await fsp.writeFile(process.env.FORGE_CONFIG, JSON.stringify({}));
+    setSetting('maxSteps', 50);
   }
 });
 

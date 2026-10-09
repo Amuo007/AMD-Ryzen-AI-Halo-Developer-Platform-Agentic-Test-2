@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, saveConfig, publicConfig } from './config.js';
-import { listSessions, loadSession, deleteSession } from './sessions.js';
+import { getConversation, deleteConversation, listConversations, importWorkspace, loadMessages } from './db.js';
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -108,26 +108,32 @@ export function createRequestHandler() {
       }
 
       if (req.method === 'GET' && p === '/api/sessions') {
+        const mode = url.searchParams.get('mode');
+        const query = url.searchParams.get('query');
+        if (mode === 'chat') {
+          return sendJson(res, 200, { sessions: listConversations({ mode: 'chat', query }) });
+        }
         const ws = isValidWorkspace(url.searchParams.get('workspace'));
         if (!ws.ok) return sendJson(res, 400, { error: ws.error });
-        return sendJson(res, 200, { sessions: await listSessions(ws.resolved) });
+        importWorkspace(ws.resolved);
+        return sendJson(res, 200, { sessions: listConversations({ mode: 'code', workspace: ws.resolved, query }) });
       }
       if (req.method === 'GET' && p === '/api/session') {
-        const ws = isValidWorkspace(url.searchParams.get('workspace'));
-        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
         const id = url.searchParams.get('sessionId') ?? '';
-        const session = await loadSession(ws.resolved, id);
-        if (!session) return sendJson(res, 404, { error: 'session not found' });
+        const conv = getConversation(id);
+        if (!conv) return sendJson(res, 404, { error: 'session not found' });
+        const messages = loadMessages(id);
         const turn = getTurn(id);
-        return sendJson(res, 200, { session, active: Boolean(turn && !turn.finished) });
+        return sendJson(res, 200, {
+          session: { ...conv, messageCount: messages.filter((m) => m.role !== 'tool').length, messages: messages.map(({ __meta, ...m }) => m) },
+          active: Boolean(turn && !turn.finished),
+        });
       }
       if (req.method === 'DELETE' && p === '/api/session') {
-        const ws = isValidWorkspace(url.searchParams.get('workspace'));
-        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
         const id = url.searchParams.get('sessionId') ?? '';
         const turn = getTurn(id);
         if (turn && !turn.finished) turn.stop();
-        const ok = await deleteSession(ws.resolved, id);
+        const ok = deleteConversation(id);
         return sendJson(res, ok ? 200 : 404, { deleted: ok });
       }
 

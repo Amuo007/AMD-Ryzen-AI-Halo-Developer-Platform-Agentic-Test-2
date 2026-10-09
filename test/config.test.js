@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { loadConfig, saveConfig, maskKey, publicConfig, configFilePath, DEFAULTS } from '../src/config.js';
+import { loadConfig, saveConfig, maskKey, publicConfig, DEFAULTS } from '../src/config.js';
+import { useDatabase, getSetting, dbFilePath } from '../src/db.js';
 
-function tmpConfig() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-cfg-'));
-  process.env.FORGE_CONFIG = path.join(dir, 'config.json');
-  return process.env.FORGE_CONFIG;
+function freshDb() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'forge-cfgdb-'));
+  const file = path.join(dir, 'forge.db');
+  useDatabase(file);
+  return file;
 }
 
-test('defaults without any config', () => {
-  tmpConfig();
+test('defaults without any stored settings', () => {
+  freshDb();
   const cfg = loadConfig();
   assert.equal(cfg.baseURL, DEFAULTS.baseURL);
   assert.equal(cfg.model, 'Qwen3.8-Flash-Next-GGUF-IQ3_M');
@@ -21,8 +23,8 @@ test('defaults without any config', () => {
   assert.equal(cfg.apiKey, 'local');
 });
 
-test('file values override defaults, env overrides file', async () => {
-  const file = tmpConfig();
+test('db values override defaults, env overrides db', async () => {
+  freshDb();
   await saveConfig({ baseURL: 'http://file/v1', model: 'file-model', apiKey: 'filekey' });
   assert.equal(loadConfig().baseURL, 'http://file/v1');
   process.env.FORGE_BASE_URL = 'http://env/v1';
@@ -34,30 +36,33 @@ test('file values override defaults, env overrides file', async () => {
   assert.equal(loadConfig().baseURL, 'http://file/v1');
 });
 
-test('env FORGE_API_KEY overrides file key', () => {
-  tmpConfig();
+test('env FORGE_API_KEY overrides stored key', () => {
+  freshDb();
   process.env.FORGE_API_KEY = 'envkey';
   assert.equal(loadConfig().apiKey, 'envkey');
   delete process.env.FORGE_API_KEY;
 });
 
-test('corrupt config file falls back to defaults', () => {
-  const file = tmpConfig();
-  fs.writeFileSync(file, 'not json at all {{{');
+test('numeric values persist as numbers and clamp', async () => {
+  freshDb();
+  await saveConfig({ maxSteps: '7', contextLimit: 5000 });
   const cfg = loadConfig();
-  assert.equal(cfg.baseURL, DEFAULTS.baseURL);
+  assert.equal(cfg.maxSteps, 7);
+  assert.equal(cfg.contextLimit, 5000);
+  await saveConfig({ maxSteps: 0 });
+  assert.equal(loadConfig().maxSteps, 1); // clamped
 });
 
 test('saveConfig merges and only accepts known keys', async () => {
-  const file = tmpConfig();
+  const file = freshDb();
   await saveConfig({ baseURL: 'http://a/v1', evil: 'x' });
-  const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
-  assert.equal(raw.baseURL, 'http://a/v1');
-  assert.equal(raw.evil, undefined);
+  assert.equal(getSetting('evil'), null);
+  assert.equal(loadConfig().baseURL, 'http://a/v1');
+  assert.ok(fs.existsSync(file));
 });
 
 test('saveConfig ignores re-submitted masked key', async () => {
-  const file = tmpConfig();
+  freshDb();
   await saveConfig({ apiKey: 'sk-secret123456' });
   const masked = maskKey('sk-secret123456');
   await saveConfig({ apiKey: masked });
@@ -74,15 +79,10 @@ test('maskKey never leaks the middle', () => {
   assert.equal(view.hasApiKey, true);
 });
 
-test('numeric clamping', () => {
-  tmpConfig();
-  process.env.FORGE_BASE_URL = 'http://x/v1';
-  const cfg = loadConfig();
-  assert.ok(cfg.maxSteps >= 1);
-  delete process.env.FORGE_BASE_URL;
-});
-
-test('configFilePath respects FORGE_CONFIG', () => {
-  tmpConfig();
-  assert.equal(configFilePath(), process.env.FORGE_CONFIG);
+test('settings survive reopening the same db file', async () => {
+  const file = freshDb();
+  await saveConfig({ model: 'persist-model' });
+  useDatabase(file); // reopen
+  assert.equal(loadConfig().model, 'persist-model');
+  assert.equal(dbFilePath(), file);
 });

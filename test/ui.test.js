@@ -92,8 +92,9 @@ test('mascot: SVG art in composer + CSS animations for all 5 states', () => {
   const css = pub('styles.css');
   for (const st of ['idle', 'typing', 'waiting', 'thinking', 'talking'])
     assert.match(css, new RegExp(`#mascot\\[data-state="${st}"\\]`));
-  for (const kf of ['m-breathe', 'm-blink', 'm-trot', 'm-halo-pulse', 'm-dart', 'm-think-tilt', 'm-talk'])
+  for (const kf of ['m-breathe', 'm-blink', 'm-trot', 'm-halo-pulse', 'm-dart', 'm-think-tilt', 'm-talk', 'm-ring-travel', 'm-halo-glow'])
     assert.match(css, new RegExp(`@keyframes ${kf}`));
+  assert.match(css, /data-state="waiting"\] \.m-halo ellipse \{ stroke-dasharray/);
   assert.match(css, /prefers-reduced-motion/);
 });
 

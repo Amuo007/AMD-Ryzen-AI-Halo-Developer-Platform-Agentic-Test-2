@@ -25,12 +25,20 @@ The server binds to **127.0.0.1 only** — it never exposes anything on your LAN
 
 ## Usage
 
-1. Pick a **workspace folder** in the sidebar (type a path or use the 📁 browser).
-2. Choose a **permission mode** in the status bar (see below).
-3. Type a task in the chat box and hit **Enter**. forge streams the model's answer live,
-   shows each tool call as a collapsible card (with red/green diffs for edits), and asks
-   for approval when the current mode requires it. **Stop** (or `Esc`) cancels a running
-   turn, including a running shell command.
+1. Pick a **mode** in the sidebar: **Chat** (plain conversation) or **Code** (agent works
+   in a workspace). The look follows the Claude Desktop / Claude Code reference designs in
+   `reference/` — light theme by default, dark one click away (◐).
+2. Pick a **workspace folder** in the sidebar (type a path or use the 📁 browser).
+3. Choose a **permission mode** in the composer (see below).
+4. Type a task in the chat box and hit **Enter**. forge streams the model's answer live
+   with **markdown rendering** (headings, lists, bold/italic, links, code fences), shows
+   each tool call as a collapsible card (with red/green diffs for edits), aggregates the
+   turn's edits into an "Edited N files" summary card, and asks for approval when the
+   current mode requires it. **Stop** (or `Esc`) cancels a running turn, including a
+   running shell command. Rate answers 👍/👎 under each reply.
+5. A fresh **Code** session opens with a **usage dashboard**: sessions / messages / total
+   tokens / active days / peak hour / favorite-model tiles and a 13-week activity
+   heatmap, filterable by All / 30d / 7d.
 
 ## Settings
 
@@ -73,8 +81,11 @@ All file tools resolve `..` **and symlinks** and refuse anything outside the wor
 
 ## Sessions & memory
 
-- Conversations are saved as JSONL under `<workspace>/.forge/sessions/`; the sidebar lists
-  them, click to continue, **＋ New chat** for a fresh one.
+- Conversations are saved in **SQLite** (Node 22 built-in) and listed in the sidebar,
+  **grouped by date** (Today / Yesterday / dated) with click-to-continue and delete;
+  **＋ New** starts a fresh one.
+- Per-message **👍/👎 feedback** is stored (`POST /api/feedback`) and shown when you
+  reopen a session; `/api/stats` powers the dashboard aggregates.
 - If the workspace contains **`AGENTS.md`**, it is injected into the system prompt as
   project instructions.
 - Context is managed automatically: old tool outputs shrink first, then whole turns drop,
@@ -83,7 +94,7 @@ All file tools resolve `..` **and symlinks** and refuse anything outside the wor
 ## Tests
 
 ```bash
-npm test   # node --test: unit, API and end-to-end (mock OpenAI server) tests
+npm test   # node --test: 123 unit, API and end-to-end (mock OpenAI server) tests
 ```
 
 ## Architecture

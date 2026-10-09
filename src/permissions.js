@@ -1,10 +1,10 @@
 export const MODES = ['ask', 'auto-edit', 'full'];
 
-export const READ_ONLY_TOOLS = new Set(['read_file', 'list_dir', 'search', 'glob_files', 'shell_jobs']);
+export const READ_ONLY_TOOLS = new Set(['read_file', 'list_dir', 'search', 'glob_files', 'shell_jobs', 'use_skill']);
 export const FILE_EDIT_TOOLS = new Set(['write_file', 'edit_file']);
 /**
- * Tools that never touch the workspace (or only the agent's own bookkeeping /
- * its own background jobs) and are auto-approved in every mode.
+ * Tools that never change anything in the workspace and are auto-approved in
+ * every mode (use_skill only reads skill folders).
  */
 export const AUTO_ALLOW_TOOLS = new Set([...READ_ONLY_TOOLS, 'todo', 'kill_shell']);
 

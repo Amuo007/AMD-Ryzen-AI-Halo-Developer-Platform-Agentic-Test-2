@@ -4,6 +4,7 @@ import { search } from './search.js';
 import { globFiles } from './glob.js';
 import { shellJobs, killShell } from './jobs.js';
 import { todo } from './todo.js';
+import { useSkill } from '../skills.js';
 
 const string = { type: 'string' };
 
@@ -193,6 +194,22 @@ export const toolDefs = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'use_skill',
+      description:
+        'Load the full instructions of an installed skill (see the Available skills list in your instructions). Call before starting work that matches a skill. Optional `file` loads one extra file from the skill folder instead of the main SKILL.md.',
+      parameters: {
+        type: 'object',
+        properties: {
+          skill: { ...string, description: 'Skill id (folder name), e.g. "commit-helper".' },
+          file: { ...string, description: 'Optional extra file inside the skill folder.' },
+        },
+        required: ['skill'],
+      },
+    },
+  },
 ];
 
 const impl = new Map([
@@ -206,6 +223,7 @@ const impl = new Map([
   ['shell_jobs', shellJobs],
   ['kill_shell', killShell],
   ['todo', todo],
+  ['use_skill', useSkill],
 ]);
 
 export function getTool(name) {
@@ -213,7 +231,7 @@ export function getTool(name) {
 }
 
 export function isReadOnlyTool(name) {
-  return name === 'read_file' || name === 'list_dir' || name === 'search' || name === 'glob_files' || name === 'shell_jobs';
+  return name === 'read_file' || name === 'list_dir' || name === 'search' || name === 'glob_files' || name === 'shell_jobs' || name === 'use_skill';
 }
 
 /** Tools that never change anything in the workspace and never ask for approval. */

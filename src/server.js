@@ -10,6 +10,7 @@ import { getConversation, deleteConversation, listConversations, listWorkspaces,
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
 import { resolvePrompt, promptLocations } from './prompt.js';
+import { discoverSkills, setSkillEnabled, useSkill } from './skills.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -241,6 +242,29 @@ export function createRequestHandler() {
         if (!ws.ok) return sendJson(res, 400, { error: ws.error });
         const resolved = await resolvePrompt({ mode, workspace: ws.resolved });
         return sendJson(res, 200, { mode, ...resolved, locations: promptLocations(ws.resolved) });
+      }
+
+      if (req.method === 'GET' && p === '/api/skills') {
+        const workspace = url.searchParams.get('workspace');
+        const ws = workspace ? isValidWorkspace(workspace) : { ok: true, resolved: null };
+        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
+        return sendJson(res, 200, { skills: await discoverSkills({ workspace: ws.resolved }) });
+      }
+      if (req.method === 'POST' && p === '/api/skills/enabled') {
+        const body = await readBody(req);
+        const id = String(body.id ?? '');
+        if (!id) return sendJson(res, 400, { error: 'id is required' });
+        const disabled = setSkillEnabled(id, body.enabled === true);
+        return sendJson(res, 200, { ok: true, disabled });
+      }
+      if (req.method === 'GET' && p === '/api/skill') {
+        const name = url.searchParams.get('name') ?? '';
+        const workspace = url.searchParams.get('workspace');
+        const file = url.searchParams.get('file');
+        const ws = workspace ? isValidWorkspace(workspace) : { ok: true, resolved: null };
+        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
+        const result = await useSkill({ workspace: ws.resolved }, { skill: name, file: file || undefined });
+        return sendJson(res, result.ok ? 200 : 404, result);
       }
 
       if (req.method === 'GET' && p === '/api/browse') {

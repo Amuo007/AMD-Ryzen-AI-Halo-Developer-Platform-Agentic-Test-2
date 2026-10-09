@@ -262,3 +262,29 @@ test('runtime: switching to the Prompt tab loads the effective prompt', async ()
     app.done();
   }
 });
+
+test('skills tab: html structure + runtime list render', () => {
+  const html = pub('index.html');
+  assert.match(html, /data-tab="skills"/);
+  assert.match(html, /id="skills-list"/);
+  const app = pub('app.js');
+  assert.match(app, /async function renderSkillsTab/);
+  const css = pub('styles.css');
+  assert.match(css, /\.skill-row/);
+  assert.match(css, /\.skill-toggle/);
+});
+
+test('runtime: skills tab lists skills from the API', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    await app.api.openSettingsTab('skills');
+    await new Promise((r) => setTimeout(r, 80));
+    const list = app.els.get('#skills-list');
+    const texts = list.texts();
+    assert.ok(texts.some((t) => t.includes('Demo')), `skill name missing: ${JSON.stringify(texts)}`);
+    assert.ok(texts.some((t) => t.includes('demo skill')), 'skill description missing');
+  } finally {
+    app.done();
+  }
+});

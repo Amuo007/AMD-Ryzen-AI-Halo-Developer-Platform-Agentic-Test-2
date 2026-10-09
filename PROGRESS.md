@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/skills`
-- Doing: task 3 — skills folders with SKILL.md, discovery, use_skill tool, Settings tab
-- Half-done: nothing; tasks 1–2 merged, 145 tests green
+- Branch: `feat/tool-policy` (next `feat/mcp`)
+- Doing: task 4 — tool enable/disable + MCP server support
+- Half-done: nothing; tasks 1–3 merged, 153 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -30,11 +30,11 @@
 - [x] Tests; merge + push
 
 ## 3. Skills (`feat/skills`)
-- [ ] `src/skills.js`: discover `<ws>/.forge/skills/<id>/SKILL.md` + `~/.forge/skills/`, frontmatter parse, workspace overrides global
-- [ ] Only name+description go into the system prompt (available-skills section)
-- [ ] `use_skill` tool: load a skill's full instructions (+ extra files in its folder)
-- [ ] Enable/disable persisted (settings); `GET /api/skills`, `POST /api/skills/enabled`, `GET /api/skill`
-- [ ] Settings: "Skills" tab — list, view, toggle
+- [x] `src/skills.js`: discover `<ws>/.forge/skills/<id>/SKILL.md` + `~/.forge/skills/`, frontmatter parse, workspace overrides global
+- [x] Only name+description go into the system prompt (available-skills section)
+- [x] `use_skill` tool: load a skill's full instructions (+ extra files in its folder)
+- [x] Enable/disable persisted (settings); `GET /api/skills`, `POST /api/skills/enabled`, `GET /api/skill`
+- [x] Settings: "Skills" tab — list, view, toggle
 - [x] Tests; merge + push
 
 ## 4. Tool access & extensibility (`feat/tool-policy`, `feat/mcp`)

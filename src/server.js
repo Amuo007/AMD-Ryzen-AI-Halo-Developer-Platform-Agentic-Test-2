@@ -139,9 +139,14 @@ export function createRequestHandler() {
 
       if (req.method === 'POST' && p === '/api/chat') {
         const body = await readBody(req);
-        const ws = isValidWorkspace(body.workspace);
-        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
         if (typeof body.message !== 'string' || !body.message.trim()) return sendJson(res, 400, { error: 'message is required' });
+        const agentMode = body.agentMode === 'chat' ? 'chat' : 'code';
+        let workspace = null;
+        if (agentMode === 'code') {
+          const ws = isValidWorkspace(body.workspace);
+          if (!ws.ok) return sendJson(res, 400, { error: ws.error });
+          workspace = ws.resolved;
+        }
         const mode = ['ask', 'auto-edit', 'full'].includes(body.mode) ? body.mode : 'ask';
         const sessionId = body.sessionId ? String(body.sessionId) : null;
         if (sessionId && getTurn(sessionId) && !getTurn(sessionId).finished) {
@@ -150,7 +155,7 @@ export function createRequestHandler() {
         const sid = sessionId ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         let turn;
         try {
-          turn = await startTurn({ sessionId: sid, workspace: ws.resolved, message: body.message.trim(), mode });
+          turn = await startTurn({ sessionId: sid, workspace, message: body.message.trim(), mode, agentMode });
         } catch (err) {
           return sendJson(res, err.status ?? 500, { error: err.message });
         }

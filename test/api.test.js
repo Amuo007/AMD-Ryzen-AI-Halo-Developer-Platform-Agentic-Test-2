@@ -100,6 +100,47 @@ function sseCollect({ sessionId, until, timeoutMs = 15000, onEvent }) {
   });
 }
 
+test('chat mode: no workspace, streams a plain answer, persists as chat conversation', async () => {
+  const sessionId = 'apitest-chat';
+  mockHandler = (body) => {
+    const sys = body.messages.find((m) => m.role === 'system');
+    assert.match(sys.content, /Chat mode/);
+    assert.ok(!('tools' in body), 'chat requests send no tools array');
+    return { chunks: [...textChunks('A plain chat answer.'), deltaChunk({}, 'stop'), usageChunk({ prompt_tokens: 5, completion_tokens: 6, total_tokens: 11 })] };
+  };
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  const chat = await req('POST', '/api/chat', { sessionId, agentMode: 'chat', message: 'hello there' });
+  assert.equal(chat.status, 202);
+  const events = await sseCollect({ sessionId, until: untilEnd });
+  assert.ok(events.some((e) => e.type === 'user' && e.agentMode === 'chat'));
+  const text = events.filter((e) => e.type === 'text_delta').map((e) => e.text).join('');
+  assert.equal(text, 'A plain chat answer.');
+  assert.ok(!events.some((e) => e.type === 'tool_start' || e.type === 'permission_request'), 'chat runs no tools/permissions');
+  const s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  assert.equal(s.status, 200);
+  assert.equal(s.data.session.mode, 'chat');
+  assert.equal(s.data.session.workspace, null);
+  assert.equal(s.data.session.title, 'hello there');
+  const chatList = await req('GET', '/api/sessions?mode=chat');
+  assert.ok(chatList.data.sessions.some((x) => x.id === sessionId));
+});
+
+test('chat mode: a stray tool_call from the model is never executed', async () => {
+  const sessionId = 'apitest-chat-tool';
+  mockHandler = () => ({ chunks: [...toolCallChunks('write_file', JSON.stringify({ path: 'nope.txt', content: 'x' })), deltaChunk({}, 'tool_calls')] });
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  await req('POST', '/api/chat', { sessionId, agentMode: 'chat', message: 'make me a file' });
+  const events = await sseCollect({ sessionId, until: untilEnd });
+  assert.ok(!events.some((e) => e.type === 'tool_start'), 'chat must not run tool calls');
+});
+
+test('code mode still requires a valid workspace', async () => {
+  const missing = await req('POST', '/api/chat', { sessionId: 'apitest-code-nows', agentMode: 'code', message: 'hi', workspace: '/does/not/exist-xyz' });
+  assert.equal(missing.status, 400);
+  const noWs = await req('POST', '/api/chat', { sessionId: 'apitest-code-none', message: 'hi' });
+  assert.equal(noWs.status, 400);
+});
+
 test.after(async () => {
   await forge?.close();
   await mock?.close();

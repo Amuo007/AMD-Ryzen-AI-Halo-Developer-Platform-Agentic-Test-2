@@ -2,19 +2,20 @@ import { streamChatCompletion } from './llm.js';
 import { runTool, toolDefs } from './tools/index.js';
 import { decidePermission, describeToolCall } from './permissions.js';
 import { trimContext } from './context.js';
-import { loadAgentsMd, buildSystemPrompt } from './memory.js';
-import { appendMessage } from './db.js';
+import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory.js';
+import { appendMessage, getConversation } from './db.js';
 import { ensureConversation } from './conversations.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
 
 export class Turn {
-  constructor({ id, sessionId, workspace, mode, maxSteps }) {
+  constructor({ id, sessionId, workspace, mode, agentMode = 'code', maxSteps }) {
     this.id = id;
     this.sessionId = sessionId;
     this.workspace = workspace;
-    this.mode = mode;
+    this.mode = mode; // permission mode: ask | auto-edit | full
+    this.agentMode = agentMode === 'chat' ? 'chat' : 'code'; // conversation kind
     this.maxSteps = maxSteps;
     this.events = [];
     this.nextEventId = 1;
@@ -121,23 +122,26 @@ export async function runTurn(turn, userMessage) {
   const config = loadConfig();
   const messages = [];
   const signal = turn.abortController.signal;
-  turn.emit({ type: 'user', message: userMessage, mode: turn.mode });
+  const isChat = turn.agentMode === 'chat';
+  turn.emit({ type: 'user', message: userMessage, mode: turn.mode, agentMode: turn.agentMode });
   await appendMessage(turn.sessionId, { role: 'user', content: userMessage });
   messages.push({ role: 'user', content: userMessage });
 
-  const agentsMd = await loadAgentsMd(turn.workspace);
-  const systemPrompt = buildSystemPrompt({ workspace: turn.workspace, agentsMd });
+  const agentsMd = isChat ? null : await loadAgentsMd(turn.workspace);
+  const systemPrompt = isChat ? buildChatSystemPrompt() : buildSystemPrompt({ workspace: turn.workspace, agentsMd });
 
+  let stepUsage = null;
   try {
     for (let step = 0; step < turn.maxSteps; step++) {
       if (turn.stopped) break;
+      stepUsage = null;
       const context = trimContext([{ role: 'system', content: systemPrompt }, ...messages], config.contextLimit);
       const result = await streamChatCompletion({
         baseURL: config.baseURL,
         apiKey: config.apiKey,
         model: config.model,
         messages: context,
-        tools: toolDefs,
+        tools: isChat ? undefined : toolDefs,
         signal,
         onText: (t) => turn.emit({ type: 'text_delta', text: t }),
         onReasoning: (t) => turn.emit({ type: 'reasoning_delta', text: t }),
@@ -145,6 +149,7 @@ export async function runTurn(turn, userMessage) {
           turn.emit({ type: 'tool_args_delta', callIndex: d.index ?? 0, id: d.id, argsFragment: d.function?.arguments ?? '', toolName: d.function?.name }),
         onRetry: (r) => turn.emit({ type: 'retry', attempt: r.attempt, error: String(r.error?.message ?? r.error) }),
         onUsage: (u) => {
+          stepUsage = { promptTokens: u.prompt_tokens ?? 0, completionTokens: u.completion_tokens ?? 0 };
           turn.usage.promptTokens += u.prompt_tokens ?? 0;
           turn.usage.completionTokens += u.completion_tokens ?? 0;
           turn.usage.totalTokens += u.total_tokens ?? 0;
@@ -162,10 +167,12 @@ export async function runTurn(turn, userMessage) {
         }));
       }
       messages.push(asstMsg);
-      await appendMessage(turn.sessionId, asstMsg);
+      await appendMessage(turn.sessionId, asstMsg, { model: config.model, usage: stepUsage });
       turn.emit({ type: 'message_end', content: asstMsg.content });
 
       if (!asstMsg.tool_calls?.length) break;
+      if (isChat) break; // Chat mode never executes tools
+
 
       for (let i = 0; i < asstMsg.tool_calls.length; i++) {
         const call = asstMsg.tool_calls[i];
@@ -226,19 +233,24 @@ export async function runTurn(turn, userMessage) {
   }
 }
 
-export async function startTurn({ sessionId, workspace, message, mode }) {
+export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code' }) {
   if (turns.has(String(sessionId))) {
     const existing = turns.get(String(sessionId));
     if (!existing.finished) throw Object.assign(new Error('A turn is already running for this session'), { status: 409 });
   }
   const config = loadConfig();
-  ensureConversation(sessionId, { workspace, mode: 'code' });
+  // a conversation keeps the mode it was created with
+  const stored = getConversation(sessionId);
+  const convMode = stored ? stored.mode : agentMode === 'chat' ? 'chat' : 'code';
+  const isChat = convMode === 'chat';
+  ensureConversation(sessionId, { workspace: isChat ? null : workspace, mode: convMode });
   const turn = new Turn({
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     sessionId: String(sessionId),
-    workspace,
+    workspace: isChat ? null : workspace,
     mode: mode ?? 'ask',
-    maxSteps: config.maxSteps,
+    agentMode: convMode,
+    maxSteps: isChat ? 1 : config.maxSteps,
   });
   turns.set(turn.sessionId, turn);
   // run detached

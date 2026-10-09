@@ -158,6 +158,7 @@
     </div>
     <div class="settings-tabs" role="tablist">
       <button class="settings-tab active" data-tab="general">General</button>
+      <button class="settings-tab" data-tab="tools">Tools</button>
       <button class="settings-tab" data-tab="prompt">Prompt</button>
       <button class="settings-tab" data-tab="skills">Skills</button>
     </div>
@@ -176,6 +177,14 @@
       </menu>
       <div id="settings-msg" class="hint"></div>
     </form>
+    <div class="settings-panel hidden" data-panel="tools">
+      <p class="hint">
+        Enable or disable the tools forge may use. Disabled tools are hidden from the model
+        and calls to them are rejected. External tools can be added as MCP servers in
+        <code>~/.forge/mcp.json</code> or <code>&lt;workspace&gt;/.forge/mcp.json</code>.
+      </p>
+      <div id="tools-list" class="tools-list"></div>
+    </div>
     <div class="settings-panel hidden" data-panel="prompt">
       <div class="prompt-src-row">
         <label class="inline-label">Mode

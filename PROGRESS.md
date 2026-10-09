@@ -1,9 +1,9 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/tool-policy` (next `feat/mcp`)
-- Doing: task 4 — tool enable/disable + MCP server support
-- Half-done: nothing; tasks 1–3 merged, 153 tests green
+- Branch: `feat/mcp`
+- Doing: task 4b — MCP stdio client, mcp.json config, namespaced tools, settings status
+- Half-done: tool-policy merged (156 tests green)
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -38,8 +38,8 @@
 - [x] Tests; merge + push
 
 ## 4. Tool access & extensibility (`feat/tool-policy`, `feat/mcp`)
-- [ ] Tool enable/disable in Settings (persisted); defs filtered per turn; disabled-tool calls get a clear error
-- [ ] `GET /api/tools`, `POST /api/tools/enabled`
+- [x] Tool enable/disable in Settings (persisted); defs filtered per turn; disabled-tool calls get a clear error
+- [x] `GET /api/tools`, `POST /api/tools/enabled`
 - [ ] `src/mcp.js`: stdio JSON-RPC MCP client (initialize, tools/list, tools/call) + `~/.forge/mcp.json` + `.forge/mcp.json`
 - [ ] MCP tools namespaced `mcp__<server>__<tool>`, permissioned like write tools (readOnlyHint honored)
 - [ ] Settings: Tools tab shows core + MCP tools with toggles and server status

@@ -5,6 +5,7 @@ import { globFiles } from './glob.js';
 import { shellJobs, killShell } from './jobs.js';
 import { todo } from './todo.js';
 import { useSkill } from '../skills.js';
+import { getSetting, setSetting } from '../db.js';
 
 const string = { type: 'string' };
 
@@ -243,7 +244,39 @@ export function toolNames() {
   return [...impl.keys()];
 }
 
+/* ---------------- enable / disable policy ---------------- */
+
+export function getDisabledTools() {
+  try {
+    const list = JSON.parse(getSetting('disabledTools', '[]'));
+    return Array.isArray(list) ? list.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setToolEnabled(name, enabled) {
+  const disabled = new Set(getDisabledTools());
+  if (enabled) disabled.delete(String(name));
+  else disabled.add(String(name));
+  setSetting('disabledTools', JSON.stringify([...disabled]));
+  return [...disabled];
+}
+
+export function isToolEnabled(name) {
+  return !getDisabledTools().includes(String(name));
+}
+
+/** Tool defs after the user's enable/disable policy. */
+export function activeToolDefs(defs = toolDefs) {
+  const disabled = new Set(getDisabledTools());
+  return defs.filter((d) => !disabled.has(d.function.name));
+}
+
 export async function runTool(name, ctx, args) {
+  if (!isToolEnabled(name)) {
+    return { ok: false, content: `Error: the "${name}" tool is disabled by the user. Ask them to enable it in Settings → Tools, and do not try to work around it.` };
+  }
   const fn = impl.get(name);
   if (!fn) return { ok: false, content: `Error: unknown tool "${name}". Available tools: ${[...impl.keys()].join(', ')}.` };
   try {

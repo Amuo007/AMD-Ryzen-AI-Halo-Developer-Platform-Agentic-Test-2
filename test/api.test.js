@@ -465,3 +465,33 @@ test('GET /api/prompt: workspace override', async () => {
   assert.equal(r.data.source, 'workspace');
   assert.match(r.data.text, /WS PROMPT OVERRIDE/);
 });
+
+test('GET/POST /api/tools: list + toggle affects the model defs', async () => {
+  let r = await req('GET', '/api/tools');
+  assert.equal(r.status, 200);
+  assert.ok(r.data.tools.length >= 10);
+  assert.ok(r.data.tools.every((t) => t.enabled === true));
+  r = await req('POST', '/api/tools/enabled', { name: 'edit_file', enabled: false });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data.disabled, ['edit_file']);
+  r = await req('GET', '/api/tools');
+  const edit = r.data.tools.find((t) => t.name === 'edit_file');
+  assert.equal(edit.enabled, false);
+  // model does not see it, and calling it fails clearly
+  const sessionId = 'apitest-notool';
+  mockHandler = (body) => {
+    const tools = (body.tools || []).map((t) => t.function.name);
+    if (!tools.includes('edit_file')) {
+      // model obeys: just answers
+      return { chunks: [...textChunks('no edit tool here'), deltaChunk({}, 'stop')] };
+    }
+    return { chunks: [...toolCallChunks('edit_file', JSON.stringify({ path: 'x', old_string: 'a', new_string: 'b' }), { id: 'call_edit' }), deltaChunk({}, 'tool_calls')] };
+  };
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-notool-'));
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'edit something', mode: 'full' });
+  await sseCollect({ sessionId, until: untilEnd });
+  const sentTools = mock.requests[mock.requests.length - 1].tools.map((t) => t.function.name);
+  assert.ok(!sentTools.includes('edit_file'), 'disabled tool not offered to the model');
+  await req('POST', '/api/tools/enabled', { name: 'edit_file', enabled: true });
+});

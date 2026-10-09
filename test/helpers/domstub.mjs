@@ -61,6 +61,10 @@ const DEFAULT_ROUTES = [
   ['/api/sessions', { sessions: [] }],
   ['/api/prompt', { mode: 'code', source: 'default', path: '/repo/prompt/system.md', text: '# forge — Code mode system prompt\n\nYou are forge.', locations: { default: '/repo/prompt', global: '/home/.forge', workspace: '/ws/.forge' } }],
   ['/api/skills', { skills: [{ id: 'demo', name: 'Demo', description: 'demo skill', source: 'global', enabled: true }] }],
+  ['/api/tools', { tools: [
+    { name: 'read_file', description: 'read a file', enabled: true },
+    { name: 'edit_file', description: 'edit a file', enabled: true },
+  ], mcp: { servers: [], tools: [] } }],
 ];
 
 export async function bootApp({ storage = {}, fetchStub } = {}) {

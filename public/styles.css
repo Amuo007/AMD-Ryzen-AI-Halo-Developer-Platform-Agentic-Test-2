@@ -373,6 +373,13 @@ dialog h2 { margin: 0 0 14px; font-family: var(--serif); }
 .skill-toggle { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-dim); border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 700; }
 .skill-toggle.on { color: var(--ok); border-color: var(--ok); }
 .skill-view { padding: 4px 10px; font-size: 12.5px; }
+
+/* tools tab */
+.tools-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 420px; overflow-y: auto; scrollbar-width: thin; }
+.tools-list .group-label { margin: 10px 4px 0; }
+.mcp-status { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; color: var(--text-dim); }
+.mcp-status.running { color: var(--ok); border-color: var(--ok); }
+.mcp-status.failed, .mcp-status.stopped { color: var(--danger); border-color: var(--danger); }
 dialog form label { display: block; margin-bottom: 10px; font-size: 13px; }
 dialog form label input { display: block; width: 100%; margin-top: 4px; }
 dialog form .row { display: flex; gap: 12px; }

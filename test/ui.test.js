@@ -288,3 +288,23 @@ test('runtime: skills tab lists skills from the API', async () => {
     app.done();
   }
 });
+
+test('tools tab: html structure + runtime list render', async () => {
+  const html = pub('index.html');
+  assert.match(html, /data-tab="tools"/);
+  assert.match(html, /id="tools-list"/);
+  assert.match(html, /mcp\.json/);
+  const app = pub('app.js');
+  assert.match(app, /async function renderToolsList/);
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const boot = await bootApp();
+  try {
+    await boot.api.openSettingsTab('tools');
+    await new Promise((r) => setTimeout(r, 80));
+    const texts = boot.els.get('#tools-list').texts();
+    assert.ok(texts.some((t) => t.includes('read_file')), `tools list missing: ${JSON.stringify(texts)}`);
+    assert.ok(texts.some((t) => t.includes('edit_file')));
+  } finally {
+    boot.done();
+  }
+});

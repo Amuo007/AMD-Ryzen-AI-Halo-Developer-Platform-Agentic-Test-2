@@ -34,3 +34,17 @@ export function buildSystemPrompt({ workspace, agentsMd }) {
   }
   return parts.join('\n');
 }
+
+/**
+ * System prompt for Chat mode: a pure conversation with the model — no workspace,
+ * no tools, no file access. The model is told its limits so it does not pretend
+ * to have performed actions.
+ */
+export function buildChatSystemPrompt() {
+  return [
+    'You are forge, a helpful conversational assistant.',
+    'You are in Chat mode: you have no access to files, folders or a shell, and you cannot run any tools.',
+    'Answer the user directly, clearly and concisely. Use GitHub-flavoured markdown when it helps readability.',
+    'Never claim to have read a file or run a command. If the user needs coding work inside a project, suggest they switch to Code mode.',
+  ].join('\n');
+}

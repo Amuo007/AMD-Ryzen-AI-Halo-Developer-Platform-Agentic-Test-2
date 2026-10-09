@@ -66,7 +66,8 @@ test('greeting screens: chat "Good <time>" and code "What\'s up next"', () => {
   const app = pub('app.js');
   assert.match(app, /renderWelcome/);
   assert.match(app, /Good \$\{greetingWord\(\)\}/);
-  assert.match(app, /What's up next\?/);
+  assert.match(app, /What's up next\$\{name \? ', ' \+ name : ''\}\?/);
+  assert.match(app, /displayName/);
   assert.match(app, /class: 'greeting'/);
 });
 
@@ -104,8 +105,11 @@ test('aggregate edit summary card: edited N files with +add / -del per file', ()
   assert.match(app, /renderEditsSummary/);
   assert.match(app, /edits-card/);
   assert.match(app, /Edited \$\{list\.length\}/);
+  assert.match(app, /Show \$\{rest\.length\} more/);
+  assert.match(app, /function langOf/);
   const css = pub('styles.css');
   assert.match(css, /\.edits-card/);
+  assert.match(css, /\.edits-more/);
 });
 
 test('date-grouped session list: Today / Yesterday / dated groups with delete', () => {

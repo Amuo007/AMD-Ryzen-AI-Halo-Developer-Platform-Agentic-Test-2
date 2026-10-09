@@ -369,6 +369,11 @@ function renderPermission({ requestId, toolName, description }) {
   scrollTop();
 }
 
+function langOf(p) {
+  const ext = String(p).includes('.') ? String(p).split('.').pop().toLowerCase() : '';
+  const map = { js: 'JS', jsx: 'JSX', ts: 'TS', tsx: 'TSX', py: 'PY', json: 'JSON', md: 'MD', html: 'HTML', css: 'CSS', go: 'GO', rs: 'RS', sh: 'SH' };
+  return map[ext] || (ext ? ext.toUpperCase().slice(0, 4) : 'FILE');
+}
 function renderEditsSummary() {
   const edits = state.turnEdits.filter((e) => e.diff && e.diff.length);
   if (!edits.length) return;
@@ -393,13 +398,25 @@ function renderEditsSummary() {
       el('span', { class: 'edits-stat', html: `<span class="add">+${totalAdd}</span> <span class="del">-${totalDel}</span>` }),
     ])
   );
-  for (const f of list) {
-    const row = el('div', { class: 'edits-row', onclick: () => openFileDiff(f) }, [
-      el('span', { class: 'f-lang', text: 'JS' }),
+  const MAX_ROWS = 4;
+  const rowFor = (f) =>
+    el('div', { class: 'edits-row', onclick: () => openFileDiff(f) }, [
+      el('span', { class: 'f-lang', text: langOf(f.path) }),
       el('span', { class: 'f-name', text: f.path }),
       el('span', { class: 'edits-stat', html: `<span class="add">+${f.add}</span> <span class="del">-${f.del}</span>` }),
     ]);
-    card.appendChild(row);
+  for (const f of list.slice(0, MAX_ROWS)) card.appendChild(rowFor(f));
+  if (list.length > MAX_ROWS) {
+    const rest = list.slice(MAX_ROWS);
+    const more = el('button', {
+      class: 'edits-more',
+      text: `Show ${rest.length} more`,
+      onclick: () => {
+        more.remove();
+        for (const f of rest) card.insertBefore(rowFor(f), more);
+      },
+    });
+    card.appendChild(more);
   }
   els.messages.appendChild(card);
   scrollTop();
@@ -536,6 +553,10 @@ function greetingWord() {
   const h = new Date().getHours();
   return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
 }
+function displayName() {
+  const n = (els.userName.textContent || '').trim();
+  return n && n !== 'forge' ? n : '';
+}
 function renderWelcome() {
   els.messages.innerHTML = '';
   if (state.agentMode === 'chat') {
@@ -545,8 +566,9 @@ function renderWelcome() {
     els.messages.appendChild(w);
     return;
   }
+  const name = displayName();
   const w = el('div', { class: 'welcome' });
-  w.appendChild(el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `What's up next?` })]));
+  w.appendChild(el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `What's up next${name ? ', ' + name : ''}?` })]));
   const card = el('div', { class: 'stats-card' });
   const tabs = el('div', { class: 'stats-tabs' }, [
     el('button', { class: 'stats-tab' + (state.statsTab === 'overview' ? ' active' : ''), text: 'Overview', onclick: () => setStatsTab('overview') }),

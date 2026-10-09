@@ -102,12 +102,12 @@ test('loadAgentsMd truncates huge files', async () => {
   assert.match(text, /truncated/);
 });
 
-test('buildSystemPrompt includes workspace and AGENTS.md section', () => {
-  const p = buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: 'Use tabs.' });
+test('buildSystemPrompt includes workspace and AGENTS.md section', async () => {
+  const p = await buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: 'Use tabs.' });
   assert.match(p, /forge/);
   assert.match(p, /\/tmp\/ws/);
   assert.match(p, /AGENTS\.md/);
   assert.match(p, /Use tabs\./);
-  const p2 = buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: null });
+  const p2 = await buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: null });
   assert.doesNotMatch(p2, /Project instructions/);
 });

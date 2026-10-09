@@ -9,6 +9,7 @@ import { loadConfig, saveConfig, publicConfig } from './config.js';
 import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback, getTodos } from './db.js';
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
+import { resolvePrompt, promptLocations } from './prompt.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -231,6 +232,15 @@ export function createRequestHandler() {
         if (!turn || turn.finished) return sendJson(res, 404, { error: 'no running turn for that session' });
         turn.stop();
         return sendJson(res, 200, { ok: true });
+      }
+
+      if (req.method === 'GET' && p === '/api/prompt') {
+        const mode = url.searchParams.get('mode') === 'chat' ? 'chat' : 'code';
+        const workspace = url.searchParams.get('workspace');
+        const ws = workspace ? isValidWorkspace(workspace) : { ok: true, resolved: null };
+        if (!ws.ok) return sendJson(res, 400, { error: ws.error });
+        const resolved = await resolvePrompt({ mode, workspace: ws.resolved });
+        return sendJson(res, 200, { mode, ...resolved, locations: promptLocations(ws.resolved) });
       }
 
       if (req.method === 'GET' && p === '/api/browse') {

@@ -231,3 +231,34 @@ test('runtime: todo_update event renders a checklist into the panel', async () =
     app.done();
   }
 });
+
+test('settings tabs + effective prompt preview exist', () => {
+  const html = pub('index.html');
+  assert.match(html, /class="settings-tabs"/);
+  assert.match(html, /data-tab="general"/);
+  assert.match(html, /data-tab="prompt"/);
+  assert.match(html, /id="prompt-preview"/);
+  assert.match(html, /id="prompt-mode"/);
+  const app = pub('app.js');
+  assert.match(app, /function openSettingsTab/);
+  assert.match(app, /function renderPromptTab/);
+  assert.match(app, /\/api\/prompt/);
+  const css = pub('styles.css');
+  assert.match(css, /\.settings-tab\.active/);
+  assert.match(css, /\.prompt-preview/);
+});
+
+test('runtime: switching to the Prompt tab loads the effective prompt', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    await app.api.openSettingsTab('prompt');
+    await new Promise((r) => setTimeout(r, 80));
+    const preview = app.els.get('#prompt-preview');
+    assert.ok(String(preview.textContent).includes('forge'), 'prompt text not shown in preview');
+    const src = app.els.get('#prompt-source');
+    assert.match(String(src.textContent), /default/);
+  } finally {
+    app.done();
+  }
+});

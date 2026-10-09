@@ -152,8 +152,15 @@
   </div>
 
   <dialog id="settings-modal">
-    <form method="dialog" id="settings-form">
+    <div class="settings-head">
       <h2>Settings</h2>
+      <button id="settings-close" class="btn ghost" title="Close">✕</button>
+    </div>
+    <div class="settings-tabs" role="tablist">
+      <button class="settings-tab active" data-tab="general">General</button>
+      <button class="settings-tab" data-tab="prompt">Prompt</button>
+    </div>
+    <form method="dialog" id="settings-form" class="settings-panel" data-panel="general">
       <label>Base URL<input id="set-baseurl" type="text" spellcheck="false" /></label>
       <label>API key<input id="set-apikey" type="password" spellcheck="false" placeholder="unchanged" /><span class="hint" id="set-apikey-hint"></span></label>
       <label>Model<input id="set-model" type="text" spellcheck="false" /></label>
@@ -168,6 +175,25 @@
       </menu>
       <div id="settings-msg" class="hint"></div>
     </form>
+    <div class="settings-panel hidden" data-panel="prompt">
+      <div class="prompt-src-row">
+        <label class="inline-label">Mode
+          <select id="prompt-mode">
+            <option value="code">Code</option>
+            <option value="chat">Chat</option>
+          </select>
+        </label>
+        <span id="prompt-source" class="hint"></span>
+      </div>
+      <p class="hint">
+        The base prompt is resolved from the first file that exists:
+        <code>&lt;workspace&gt;/.forge/system.md</code> → global <code>~/.forge/system.md</code> →
+        the built-in <code>prompt/system.md</code> in the forge repo. A <code>chat.md</code> file at the
+        same locations does this for Chat mode. <code>AGENTS.md</code> in the workspace is always
+        appended as project instructions; <code>~/.forge/append.md</code> extends every prompt.
+      </p>
+      <pre id="prompt-preview" class="prompt-preview"></pre>
+    </div>
   </dialog>
 
   <dialog id="browse-modal">

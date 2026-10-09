@@ -128,7 +128,7 @@ export async function runTurn(turn, userMessage) {
   messages.push({ role: 'user', content: userMessage });
 
   const agentsMd = isChat ? null : await loadAgentsMd(turn.workspace);
-  const systemPrompt = isChat ? buildChatSystemPrompt() : buildSystemPrompt({ workspace: turn.workspace, agentsMd });
+  const systemPrompt = isChat ? await buildChatSystemPrompt() : await buildSystemPrompt({ workspace: turn.workspace, agentsMd });
 
   let stepUsage = null;
   try {

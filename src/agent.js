@@ -2,14 +2,41 @@ import { streamChatCompletion } from './llm.js';
 import { runTool, activeToolList } from './tools/index.js';
 import { mcpIsReadOnly } from './mcp.js';
 import { decidePermission, describeToolCall } from './permissions.js';
-import { trimContext } from './context.js';
+import { trimContext, contextTokens } from './context.js';
 import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory.js';
 import { discoverSkills, skillsSectionText } from './skills.js';
-import { appendMessage, getConversation } from './db.js';
+import { appendMessage, getConversation, loadMessages } from './db.js';
 import { ensureConversation } from './conversations.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
+
+/** Handoff messages carry this name; everything before the latest one leaves the model context. */
+export const HANDOFF_NAME = 'forge:handoff';
+
+export const HANDOFF_DIRECTIVE = `SYSTEM: Automatic context handoff. Your conversation history is about to be discarded from the context window.
+Write a handoff summary for your future self, who will continue the task with no other memory of what happened so far.
+Use exactly these markdown sections, filled in with specifics (exact paths, commands, statuses, numbers):
+
+## Goal
+## Done
+## Current state
+## Branches & files
+## Next steps
+
+Do not call tools. Do not ask questions. After the handoff, work resumes from "Next steps".`;
+
+/** Model-visible history: everything from the latest handoff marker onward. */
+export function historyFromRows(rows) {
+  let start = 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i].name === HANDOFF_NAME) {
+      start = i;
+      break;
+    }
+  }
+  return rows.slice(start).map(({ __meta, name, ...m }) => m);
+}
 
 export class Turn {
   constructor({ id, sessionId, workspace, mode, agentMode = 'code', maxSteps, reasoning = 'auto' }) {
@@ -30,6 +57,8 @@ export class Turn {
     this.alwaysAllow = new Set();
     this.finished = false;
     this.stopped = false;
+    this.handoffSkipped = false;
+    this.handoffs = 0;
     this.lastError = null;
     this.usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requests: 0 };
   }
@@ -123,23 +152,34 @@ export function getTurn(sessionId) {
  */
 export async function runTurn(turn, userMessage) {
   const config = loadConfig();
-  const messages = [];
   const signal = turn.abortController.signal;
   const isChat = turn.agentMode === 'chat';
   turn.emit({ type: 'user', message: userMessage, mode: turn.mode, agentMode: turn.agentMode });
   await appendMessage(turn.sessionId, { role: 'user', content: userMessage });
-  messages.push({ role: 'user', content: userMessage });
+  // history: everything since the latest handoff marker (older rows stay in the session, readable)
+  const messages = historyFromRows(loadMessages(turn.sessionId));
 
   const agentsMd = isChat ? null : await loadAgentsMd(turn.workspace);
   const skillsSection = isChat ? null : skillsSectionText(await discoverSkills({ workspace: turn.workspace }));
   const systemPrompt = isChat ? await buildChatSystemPrompt() : await buildSystemPrompt({ workspace: turn.workspace, agentsMd, skillsSection });
 
   let stepUsage = null;
+  let usageCorrection = 0; // real prompt tokens - estimate for the last request (usage is ground truth)
   try {
     for (let step = 0; step < turn.maxSteps; step++) {
       if (turn.stopped) break;
       stepUsage = null;
+      if (!isChat && !turn.handoffSkipped) {
+        const next = contextTokens([{ role: 'system', content: systemPrompt }, ...messages]) + usageCorrection;
+        if (next >= config.handoffLimit) {
+          const done = await performHandoff(turn, config, { systemPrompt, messages, signal });
+          usageCorrection = 0;
+          if (!done) turn.handoffSkipped = true;
+          continue;
+        }
+      }
       const context = trimContext([{ role: 'system', content: systemPrompt }, ...messages], config.contextLimit);
+      const sentEstimate = contextTokens(context);
       const result = await streamChatCompletion({
         baseURL: config.baseURL,
         apiKey: config.apiKey,
@@ -162,6 +202,7 @@ export async function runTurn(turn, userMessage) {
           turn.emit({ type: 'usage', usage: u, total: turn.usage });
         },
       });
+      if (stepUsage) usageCorrection = stepUsage.promptTokens - sentEstimate;
 
       const asstMsg = { role: 'assistant', content: result.message.content ?? null };
       if (result.message.tool_calls?.length) {
@@ -236,6 +277,47 @@ export async function runTurn(turn, userMessage) {
       turn.finish({ error: String(err?.message ?? err) });
     }
   }
+}
+
+/**
+ * Automatic context handoff (Code mode): ask the model to summarize the session,
+ * persist it as a named handoff message and reset the working context to it.
+ * Older messages stay in the session (still readable in the UI).
+ */
+async function performHandoff(turn, config, { systemPrompt, messages, signal }) {
+  const directive = { role: 'user', content: HANDOFF_DIRECTIVE };
+  const ctx = trimContext([{ role: 'system', content: systemPrompt }, ...messages, directive], config.contextLimit);
+  let usage = null;
+  const result = await streamChatCompletion({
+    baseURL: config.baseURL,
+    apiKey: config.apiKey,
+    model: config.model,
+    messages: ctx,
+    reasoning: turn.reasoning,
+    signal,
+    onText: (t) => turn.emit({ type: 'handoff_delta', text: t }),
+    onRetry: (r) => turn.emit({ type: 'retry', attempt: r.attempt, error: String(r.error?.message ?? r.error) }),
+    onUsage: (u) => {
+      usage = u;
+      turn.usage.promptTokens += u.prompt_tokens ?? 0;
+      turn.usage.completionTokens += u.completion_tokens ?? 0;
+      turn.usage.totalTokens += u.total_tokens ?? 0;
+      turn.usage.requests += 1;
+      turn.emit({ type: 'usage', usage: u, total: turn.usage });
+    },
+  });
+  const summary = String(result.message.content ?? '').trim();
+  if (!summary) return false;
+  const msg = { role: 'assistant', content: summary, name: HANDOFF_NAME };
+  const mid = await appendMessage(turn.sessionId, msg, {
+    model: config.model,
+    usage: usage ? { promptTokens: usage.prompt_tokens ?? 0, completionTokens: usage.completion_tokens ?? 0 } : null,
+  });
+  turn.handoffs += 1;
+  messages.length = 0;
+  messages.push({ role: 'assistant', content: summary });
+  turn.emit({ type: 'handoff', messageId: mid, summary, count: turn.handoffs });
+  return true;
 }
 
 export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code', reasoning }) {

@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/context-meter` (next `feat/handoff`)
-- Doing: task 6 — context meter done; automatic handoff next
-- Half-done: nothing; tasks 1–5 merged, 169 tests green
-- Baseline: main = fa4f2bb, 126 tests green
+- Branch: `feat/handoff` (next `feat/rebrand`)
+- Doing: task 7 — rebrand to Halo AI Harness (name, halo SVG thinking loader)
+- Half-done: nothing; task 6 (context meter + automatic handoff) complete, 171 tests green
+- Baseline: main = 2205cd9, 169 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -56,11 +56,15 @@
 - [x] Real token counts from API usage used as ground truth where available
 - [x] `GET /api/context?sessionId=` breakdown: system prompt / tool defs / skills / messages / tool results
 - [x] Circular context meter near composer + popup breakdown; color escalation
-- [ ] Automatic handoff (Code mode only): model writes goal/done/state/branches+files/next-steps summary, work continues in fresh context without user action
-- [ ] Handoff marker visible in chat; earlier part still readable; Chat mode untouched
-- [ ] Tests with tiny limits on mock; merge + push
+- [x] Automatic handoff (Code mode only): model writes goal/done/state/branches+files/next-steps summary, work continues in fresh context without user action
+- [x] Handoff marker visible in chat; earlier part still readable; Chat mode untouched
+- [x] Tests with tiny limits on mock; merge + push
 
-## 7. Polish + docs + release
+## 7. Rebrand: Halo AI Harness (`feat/rebrand`)
+- [ ] Rename user-facing "forge" → "Halo AI Harness" (title, brand, texts; internal `~/.forge` paths & keys unchanged)
+- [ ] Halo image converted to SVG; used as thinking loader (Thought block + while model thinks); existing mascot avatar stays
+
+## 8. Polish + docs + release
 - [ ] End-to-end manual smoke of every new capability (real bin + mock LLM, scripted)
 - [ ] README: tools, skills, prompt file, reasoning, context meter/handoff, MCP config
 - [ ] DECISIONS.md updated; PROGRESS.md fully ticked

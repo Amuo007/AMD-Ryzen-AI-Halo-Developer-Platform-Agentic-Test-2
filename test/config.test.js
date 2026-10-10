@@ -19,7 +19,8 @@ test('defaults without any stored settings', () => {
   assert.equal(cfg.baseURL, DEFAULTS.baseURL);
   assert.equal(cfg.model, 'Qwen3.8-Flash-Next-GGUF-IQ3_M');
   assert.equal(cfg.maxSteps, 50);
-  assert.equal(cfg.contextLimit, 100000);
+  assert.equal(cfg.contextLimit, 140000);
+  assert.equal(cfg.handoffLimit, 128000);
   assert.equal(cfg.apiKey, 'local');
 });
 
@@ -49,8 +50,11 @@ test('numeric values persist as numbers and clamp', async () => {
   const cfg = loadConfig();
   assert.equal(cfg.maxSteps, 7);
   assert.equal(cfg.contextLimit, 5000);
+  assert.equal(cfg.handoffLimit, 3000, 'handoff clamps below a small context window');
   await saveConfig({ maxSteps: 0 });
   assert.equal(loadConfig().maxSteps, 1); // clamped
+  await saveConfig({ handoffLimit: 999999999 });
+  assert.ok(loadConfig().handoffLimit < loadConfig().contextLimit, 'handoff always below the window');
 });
 
 test('saveConfig merges and only accepts known keys', async () => {

@@ -14,6 +14,35 @@ export function contextTokens(messages) {
   return messages.reduce((sum, m) => sum + messageTokens(m), 0);
 }
 
+/**
+ * Human-readable breakdown of what fills the context window.
+ * `actualPromptTokens` (from the API's usage for the last request) is used as
+ * ground truth for `used` when provided: real count for everything that was
+ * in that request plus the estimate for anything appended after it.
+ */
+export function contextBreakdown({ systemPrompt, skillsSection = null, toolDefs = [], messages = [], actualPromptTokens = null, sinceActual = [] }) {
+  const skillsTokens = skillsSection ? estimateTokens(skillsSection) : 0;
+  const baseSystemTokens = estimateTokens(String(systemPrompt || '').replace(String(skillsSection || ''), ''));
+  const parts = [
+    { label: 'System prompt', tokens: baseSystemTokens },
+    { label: 'Skills (names + descriptions)', tokens: skillsTokens },
+    { label: 'Tool definitions', tokens: toolDefs.reduce((n, d) => n + estimateTokens(JSON.stringify(d)), 0) },
+  ];
+  const cats = { user: 0, assistant: 0, tool: 0 };
+  for (const m of messages) {
+    if (m.role === 'system') continue;
+    const t = messageTokens(m);
+    if (cats[m.role] !== undefined) cats[m.role] += t;
+    else cats.tool += 0;
+  }
+  parts.push({ label: 'Your messages', tokens: cats.user });
+  parts.push({ label: 'Model replies', tokens: cats.assistant });
+  parts.push({ label: 'Tool results', tokens: cats.tool });
+  const estimate = parts.reduce((n, p) => n + p.tokens, 0);
+  const used = actualPromptTokens > 0 ? actualPromptTokens + contextTokens(sinceActual) : estimate;
+  return { parts: parts.filter((p) => p.tokens > 0), estimate, used, actual: actualPromptTokens > 0 ? actualPromptTokens : null };
+}
+
 function shrinkText(text, maxChars) {
   if (typeof text !== 'string' || text.length <= maxChars) return text;
   const head = text.slice(0, maxChars);

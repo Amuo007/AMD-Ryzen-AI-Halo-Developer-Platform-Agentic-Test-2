@@ -10,9 +10,11 @@ import { getConversation, deleteConversation, listConversations, listWorkspaces,
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
 import { resolvePrompt, promptLocations } from './prompt.js';
-import { discoverSkills, setSkillEnabled, useSkill } from './skills.js';
+import { discoverSkills, setSkillEnabled, useSkill, skillsSectionText } from './skills.js';
 import { mcpEnsure, stopAllMcp } from './mcp.js';
-import { toolDefs, getDisabledTools, setToolEnabled } from './tools/index.js';
+import { contextBreakdown } from './context.js';
+import { buildSystemPrompt, buildChatSystemPrompt, loadAgentsMd } from './memory.js';
+import { toolDefs, activeToolList, getDisabledTools, setToolEnabled } from './tools/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -263,6 +265,43 @@ export function createRequestHandler() {
         if (!name) return sendJson(res, 400, { error: 'name is required' });
         const disabled = setToolEnabled(name, body.enabled === true);
         return sendJson(res, 200, { ok: true, disabled });
+      }
+
+      if (req.method === 'GET' && p === '/api/context') {
+        const id = url.searchParams.get('sessionId');
+        if (!id) return sendJson(res, 400, { error: 'sessionId is required' });
+        const conv = getConversation(id);
+        if (!conv) return sendJson(res, 404, { error: 'session not found' });
+        const cfg = loadConfig();
+        const isChat = conv.mode === 'chat';
+        const rows = loadMessages(id);
+        const messages = rows.map(({ __meta, ...m }) => m);
+        let actual = null;
+        let actualIdx = -1;
+        rows.forEach((m, i) => {
+          if (m.role === 'assistant' && m.__meta?.promptTokens > 0) {
+            actual = m.__meta.promptTokens;
+            actualIdx = i;
+          }
+        });
+        const sinceActual = actualIdx >= 0 ? rows.slice(actualIdx + 1).map(({ __meta, ...m }) => m) : [];
+        let systemPrompt = '';
+        let skillsSection = null;
+        let defs = [];
+        try {
+          if (isChat) {
+            systemPrompt = await buildChatSystemPrompt();
+          } else {
+            const agentsMd = conv.workspace ? await loadAgentsMd(conv.workspace) : null;
+            skillsSection = skillsSectionText(await discoverSkills({ workspace: conv.workspace }));
+            systemPrompt = await buildSystemPrompt({ workspace: conv.workspace, agentsMd, skillsSection });
+            defs = await activeToolList(conv.workspace);
+          }
+        } catch {
+          /* meter stays approximate if prompt files are unreadable */
+        }
+        const bd = contextBreakdown({ systemPrompt, skillsSection, toolDefs: defs, messages, actualPromptTokens: actual, sinceActual });
+        return sendJson(res, 200, { limit: cfg.contextLimit, handoffAt: cfg.handoffLimit, mode: conv.mode, ...bd });
       }
 
       if (req.method === 'GET' && p === '/api/skills') {

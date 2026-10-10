@@ -522,3 +522,31 @@ test('reasoning: per-conversation control reaches the API request', async () => 
   await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true) });
   assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { thinking: false });
 });
+
+test('GET /api/context: breakdown, real usage as ground truth, guards', async () => {
+  const bad = await req('GET', '/api/context');
+  assert.equal(bad.status, 400);
+  assert.equal((await req('GET', '/api/context?sessionId=does-not-exist')).status, 404);
+
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-ctx-'));
+  mockHandler = () => ({ chunks: [...textChunks('ctx answer'), deltaChunk({}, 'stop'), usageChunk({ prompt_tokens: 1234, completion_tokens: 10, total_tokens: 1244 })] });
+  const sessionId = 'apitest-ctx';
+  const r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'fill the context', mode: 'full' });
+  assert.equal(r.status, 202);
+  await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' });
+  const c = await req('GET', `/api/context?sessionId=${sessionId}`);
+  assert.equal(c.status, 200);
+  assert.equal(c.data.limit, 140000);
+  assert.equal(c.data.handoffAt, 128000);
+  assert.equal(c.data.mode, 'code');
+  assert.equal(c.data.actual, 1234, 'last real prompt-token count from the API');
+  assert.ok(c.data.used >= 1234);
+  const labels = c.data.parts.map((p) => p.label);
+  assert.ok(labels.includes('System prompt') && labels.includes('Tool definitions'), labels.join(','));
+
+  // chat sessions report no tool definitions
+  const cChat = await req('GET', '/api/context?sessionId=apitest-chat');
+  assert.equal(cChat.status, 200);
+  assert.equal(cChat.data.mode, 'chat');
+  assert.ok(!cChat.data.parts.some((p) => p.label === 'Tool definitions'));
+});

@@ -53,9 +53,14 @@ export async function streamChatCompletion({
   if (tools?.length) body.tools = tools;
   if (reasoning === 'off') {
     body.chat_template_kwargs = { thinking: false };
-  } else if (reasoning === 'low' || reasoning === 'high') {
+  } else if (reasoning === 'low') {
     body.chat_template_kwargs = { thinking: true };
-    body.reasoning_effort = reasoning;
+    body.reasoning_effort = 'low';
+  } else if (reasoning === 'high') {
+    // thinking on, effort left to the model/template default: reasoning templates
+    // define their own effort vocabularies (e.g. xhigh/medium/low) and reject
+    // OpenAI-style "high" values outright
+    body.chat_template_kwargs = { thinking: true };
   }
 
   let lastError = null;
@@ -94,7 +99,13 @@ export async function streamChatCompletion({
     } catch (err) {
       if (err.name === 'AbortError') throw err;
       if (err instanceof LLMError && !err.retryable) throw err;
-      if (err.name === 'LLMError' && err.retryable && attempt >= maxRetries) throw err;
+      if (err instanceof LLMError && err.retryable && attempt >= maxRetries) throw err;
+      if (err instanceof LLMError && err.retryable) {
+        lastError = err;
+        onRetry?.({ attempt: attempt + 1, error: err });
+        await sleep(baseDelayMs * 2 ** attempt);
+        continue;
+      }
       // network-level failure
       if (attempt < maxRetries) {
         lastError = new LLMError(`Cannot reach LLM server: ${err.cause?.message ?? err.message}`, { retryable: true });
@@ -123,6 +134,11 @@ async function consumeStream(res, { signal, onText, onReasoning, onToolCallDelta
       chunk = JSON.parse(data);
     } catch {
       return; // ignore malformed keep-alive chunks
+    }
+    if (chunk.error) {
+      // some servers report failures as an SSE data payload, not an HTTP status
+      const status = Number(chunk.error.status ?? chunk.error.code ?? 0) || null;
+      throw new LLMError(`LLM API error: ${chunk.error.message ?? chunk.error.code ?? 'unknown'}`, { status, retryable: status === null || status >= 500 });
     }
     if (chunk.usage) {
       usage = chunk.usage;

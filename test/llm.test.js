@@ -219,7 +219,23 @@ test('reasoning control maps to real request parameters', async () => {
     assert.equal(low.reasoning_effort, 'low');
     const high = await call('high');
     assert.deepEqual(high.chat_template_kwargs, { thinking: true });
-    assert.equal(high.reasoning_effort, 'high');
+    assert.ok(!('reasoning_effort' in high), 'high relies on the template default effort (templates define their own effort vocabularies)');
+  } finally {
+    await mock.close();
+  }
+});
+
+test('a server error delivered as an SSE payload raises LLMError, not an empty completion', async () => {
+  let n = 0;
+  const mock = await startMockLLM(() => {
+    n++;
+    if (n === 1) return { chunks: [{ error: { code: 500, message: 'Unexpected reasoning effort high' } }] };
+    return { chunks: [...textChunks('recovered'), deltaChunk({}, 'stop')] };
+  });
+  try {
+    const res = await streamChatCompletion({ baseURL: mock.url, apiKey: 'k', model: 'm', messages: [{ role: 'user', content: 'x' }], maxRetries: 1, baseDelayMs: 10 });
+    assert.equal(res.message.content, 'recovered');
+    assert.equal(n, 2, 'retried after the error chunk');
   } finally {
     await mock.close();
   }

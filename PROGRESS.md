@@ -107,24 +107,24 @@ local test pages; the live model server is never called during development.
       storage + route, message format, reload, vision-off fallback
 
 ## 2. Headless browser engine (`src/browser/`) (`feat/browser-engine`)
-- [ ] Chrome/Chromium/Edge auto-detect (macOS/Linux/Windows); Settings override + env var
-- [ ] Launch: `--headless=new`, `--remote-debugging-port=0`, temp `--user-data-dir`,
+- [x] Chrome/Chromium/Edge auto-detect (macOS/Linux/Windows); Settings override + env var
+- [x] Launch: `--headless=new`, `--remote-debugging-port=0`, temp `--user-data-dir`,
       no first-run — a window must never appear
-- [ ] Lazy start; one isolated browser context per conversation; close after 10 min idle
+- [x] Lazy start; one isolated browser context per conversation; close after 10 min idle
       and on server exit (no orphan Chrome processes)
-- [ ] Small CDP client over global WebSocket: id-matched request/response, event
+- [x] Small CDP client over global WebSocket: id-matched request/response, event
       subscriptions, timeouts, clear "Chrome not found — set the path in Settings" error
 - [ ] Tests against a fake CDP WebSocket server (node:http upgrade, no deps)
 
 ## 3. `browser` tool — Code mode only (`feat/browser-tool`)
-- [ ] ONE tool, `action` param: open/back/reload; screenshot (viewport|full, JPEG);
+- [x] ONE tool, `action` param: open/back/reload; screenshot (viewport|full, JPEG);
       snapshot (compact text outline, numbered refs for links/buttons/inputs);
       click(ref|selector|x,y), type, key, scroll, hover; resize(desktop|tablet|mobile);
       console; wait_for(text|selector, timeout)
-- [ ] Screenshots reach the model as an image_url part in a follow-up user message
+- [x] Screenshots reach the model as an image_url part in a follow-up user message
       (tool result stays text); only the latest 2 screenshots kept in model context
       (older → "[earlier screenshot removed]"); user-attached images never pruned
-- [ ] Every screenshot stored with the conversation (section-1 image storage)
+- [x] Every screenshot stored with the conversation (section-1 image storage)
 - [ ] Per-tool enable/disable policy honored; tool absent in Chat mode
 
 ## 4. Browser card + inline screenshots in chat (`feat/browser-card`)

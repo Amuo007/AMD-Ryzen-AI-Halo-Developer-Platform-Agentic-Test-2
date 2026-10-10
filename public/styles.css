@@ -252,6 +252,7 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 #input { width: 100%; border: none; resize: none; background: none; color: var(--text); font: inherit; font-size: 15.5px; line-height: 1.5; outline: none; max-height: 220px; padding: 4px 6px 2px; }
 .composer-bar { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
 .composer-left, .composer-right { display: flex; align-items: center; gap: 10px; }
+.composer-left { position: relative; }
 .mode-wrap { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-dim); }
 .mode-wrap select { background: var(--bg-input); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 3px 8px; font-size: 12.5px; }
 #mode-select:hover { border-color: var(--accent); }
@@ -260,6 +261,25 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 .status-llm.llm-ok { color: var(--ok); }
 .status-llm.llm-bad { color: var(--danger); }
 .status-llm.llm-unknown { color: var(--text-faint); }
+.ctx-meter {
+  display: inline-flex; align-items: center; gap: 5px; padding: 2px 6px; border: none; border-radius: 8px;
+  background: none; cursor: pointer; font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+}
+.ctx-meter:hover { background: var(--bg-hover); }
+.ctx-meter svg { display: block; }
+.ctx-popup {
+  position: absolute; bottom: calc(100% + 10px); left: 6px; z-index: 40; width: 290px;
+  background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 11px 13px 10px;
+}
+.ctx-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12.5px; margin-bottom: 8px; }
+.ctx-total { font-family: var(--mono); font-size: 11px; color: var(--text-dim); font-weight: 400; }
+.ctx-row { display: flex; align-items: center; gap: 8px; padding: 2.5px 0; font-size: 11.5px; color: var(--text-dim); }
+.ctx-k { flex: 0 0 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ctx-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.ctx-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.ctx-v { flex: 0 0 auto; min-width: 38px; text-align: right; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+.ctx-note { margin-top: 8px; font-size: 10.5px; color: var(--text-faint); }
 .send-btn, .stop-btn {
   width: 34px; height: 34px; border-radius: 50%; border: none; display: grid; place-items: center;
   background: var(--accent); color: #fff;

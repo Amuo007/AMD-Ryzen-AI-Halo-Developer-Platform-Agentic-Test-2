@@ -2,8 +2,8 @@
 
 ## Current status
 - Branch: `feat/context-meter` (next `feat/handoff`)
-- Doing: task 6 — 140K context default, real usage counts, circular meter + breakdown popup
-- Half-done: nothing; tasks 1–5 merged, 165 tests green
+- Doing: task 6 — context meter done; automatic handoff next
+- Half-done: nothing; tasks 1–5 merged, 169 tests green
 - Baseline: main = fa4f2bb, 126 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
@@ -52,10 +52,10 @@
 - [x] Tests (mock asserts body); merge + push
 
 ## 6. Context window, meter & automatic handoff (`feat/context-meter`, `feat/handoff`)
-- [ ] Defaults: context limit 140K, handoff at 128K (both Settings-configurable)
-- [ ] Real token counts from API usage used as ground truth where available
-- [ ] `GET /api/context?sessionId=` breakdown: system prompt / tool defs / skills / messages / tool results
-- [ ] Circular context meter near composer + popup breakdown; color escalation
+- [x] Defaults: context limit 140K, handoff at 128K (both Settings-configurable)
+- [x] Real token counts from API usage used as ground truth where available
+- [x] `GET /api/context?sessionId=` breakdown: system prompt / tool defs / skills / messages / tool results
+- [x] Circular context meter near composer + popup breakdown; color escalation
 - [ ] Automatic handoff (Code mode only): model writes goal/done/state/branches+files/next-steps summary, work continues in fresh context without user action
 - [ ] Handoff marker visible in chat; earlier part still readable; Chat mode untouched
 - [ ] Tests with tiny limits on mock; merge + push

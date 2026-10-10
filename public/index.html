@@ -141,6 +141,18 @@
                 </select>
               </span>
               <span id="status-tokens" class="status-tokens hidden"></span>
+              <button id="ctx-meter" class="ctx-meter hidden" title="Context window usage — click for the breakdown" aria-label="Context window usage">
+                <svg viewBox="0 0 24 24" width="22" height="22">
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="var(--border-strong)" stroke-width="3.2" />
+                  <circle id="ctx-ring" cx="12" cy="12" r="9" fill="none" stroke="var(--ok)" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="56.5" stroke-dashoffset="56.5" transform="rotate(-90 12 12)" />
+                </svg>
+                <span id="ctx-pct"></span>
+              </button>
+              <div id="ctx-popup" class="ctx-popup hidden">
+                <div class="ctx-head"><strong>Context</strong><span id="ctx-total" class="ctx-total"></span></div>
+                <div id="ctx-parts"></div>
+                <div id="ctx-note" class="hint"></div>
+              </div>
             </div>
             <div class="composer-right">
               <span id="status-llm" class="status-llm llm-unknown" title="LLM server reachability">●</span>

@@ -340,3 +340,23 @@ test('runtime: reasoning renders a collapsible thought block with duration', asy
     app.done();
   }
 });
+
+test('context meter: ring + popup in composer, Code-mode only, refresh + outside-close wired', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="ctx-meter"/);
+  assert.match(html, /id="ctx-ring"/);
+  assert.match(html, /id="ctx-popup"/);
+  const app = pub('app.js');
+  assert.match(app, /\/api\/context\?sessionId=/);
+  assert.match(app, /state\.agentMode !== 'code'/, 'meter hidden outside Code mode');
+  // refresh after usage, turn end, session open and mode switch
+  assert.match(app, /case 'usage':[\s\S]*?updateContextMeter\(\);/);
+  assert.match(app, /case 'turn_end':[\s\S]*?updateContextMeter\(\);/);
+  assert.match(app, /loadSessions\(\);\n  updateContextMeter\(\);\n  scrollTop/);
+  assert.match(app, /loadSessions\(\);\n  updateContextMeter\(\);\n  if \(newSession\)/);
+  // outside click closes the popup
+  assert.match(app, /hideCtxPopup\(\);/);
+  const css = pub('styles.css');
+  assert.match(css, /\.ctx-meter/);
+  assert.match(css, /\.ctx-popup/);
+});

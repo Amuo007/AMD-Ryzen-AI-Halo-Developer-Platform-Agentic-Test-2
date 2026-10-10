@@ -542,6 +542,7 @@ function renderEvent(ev) {
     case 'usage':
       state.lastUsage = ev.total;
       renderUsage();
+      updateContextMeter();
       break;
     case 'todo_update':
       renderTodos(ev.todos);
@@ -557,6 +558,7 @@ function renderEvent(ev) {
       if (ev.error) setStatusError(`LLM error: ${ev.error}`);
       else setStatusError('');
       if (ev.stopped) appendSystemNote('⏹ Stopped by user.');
+      updateContextMeter();
       break;
     case 'stream_end':
       if (!state.running) setMascotState('idle');
@@ -615,6 +617,90 @@ function renderTodos(todos) {
     );
   }
   panel.appendChild(list);
+}
+
+/* ---------------- context meter ---------------- */
+
+function fmtTokens(n) {
+  n = n || 0;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
+}
+
+const CtxRingC = 56.5;
+let ctxPopupOpen = false;
+
+function hideCtxMeter() {
+  $('#ctx-meter')?.classList.add('hidden');
+  hideCtxPopup();
+}
+
+async function updateContextMeter() {
+  if (state.agentMode !== 'code' || !state.sessionId) {
+    hideCtxMeter();
+    return;
+  }
+  try {
+    const d = await api('GET', `/api/context?sessionId=${encodeURIComponent(state.sessionId)}`);
+    renderCtxMeter(d);
+    if (ctxPopupOpen) renderCtxPopup(d);
+  } catch {
+    /* keep previous reading */
+  }
+}
+
+function renderCtxMeter(d) {
+  const btn = $('#ctx-meter');
+  if (!btn) return;
+  btn.classList.remove('hidden');
+  const frac = Math.max(0, Math.min(1, d.used / d.limit));
+  const ring = $('#ctx-ring');
+  if (ring) {
+    ring.setAttribute('stroke-dashoffset', String((CtxRingC * (1 - frac)).toFixed(1)));
+    const color = frac >= 0.9 ? 'var(--danger)' : frac >= 0.7 ? '#d97706' : 'var(--ok)';
+    ring.setAttribute('stroke', color);
+  }
+  const pct = $('#ctx-pct');
+  if (pct) {
+    pct.textContent = `${Math.round(frac * 100)}%`;
+    pct.style.color = frac >= 0.9 ? 'var(--danger)' : frac >= 0.7 ? '#d97706' : 'var(--text-dim)';
+  }
+}
+
+function renderCtxPopup(d) {
+  const parts = $('#ctx-parts');
+  const total = $('#ctx-total');
+  const note = $('#ctx-note');
+  if (!parts) return;
+  parts.innerHTML = '';
+  const max = Math.max(1, ...d.parts.map((p) => p.tokens));
+  for (const p of d.parts) {
+    const row = el('div', { class: 'ctx-row' });
+    row.appendChild(el('span', { class: 'ctx-k', text: p.label }));
+    const barWrap = el('span', { class: 'ctx-bar' });
+    const bar = el('span', { class: 'ctx-bar-fill' });
+    bar.style.width = `${Math.max(1, Math.round((p.tokens / max) * 100))}%`;
+    barWrap.appendChild(bar);
+    row.appendChild(barWrap);
+    row.appendChild(el('span', { class: 'ctx-v', text: fmtTokens(p.tokens) }));
+    parts.appendChild(row);
+  }
+  if (total) total.textContent = ` ${fmtTokens(d.used)} / ${fmtTokens(d.limit)} (${Math.round((d.used / d.limit) * 100)}%)`;
+  if (note) note.textContent = d.actual ? 'Uses real token counts from the API where available.' : 'Estimated (no API usage reported yet).';
+}
+
+function hideCtxPopup() {
+  ctxPopupOpen = false;
+  $('#ctx-popup')?.classList.add('hidden');
+}
+
+function toggleCtxPopup(force) {
+  const popup = $('#ctx-popup');
+  if (!popup) return;
+  ctxPopupOpen = force !== undefined ? force : !ctxPopupOpen;
+  popup.classList.toggle('hidden', !ctxPopupOpen);
+  if (ctxPopupOpen) updateContextMeter();
 }
 
 /* ---------------- welcome screens ---------------- */
@@ -853,6 +939,7 @@ async function openSession(id) {
     els.topCrumbs.classList.add('hidden');
   }
   loadSessions();
+  updateContextMeter();
   scrollTop();
 }
 
@@ -969,6 +1056,7 @@ function setAgentMode(mode, newSession = true) {
   els.input.placeholder = mode === 'chat' ? 'How can I help you today?' : 'Describe a task or ask a question…';
   updateTopIcon();
   loadSessions();
+  updateContextMeter();
   if (newSession) newChat();
 }
 function updateTopIcon() {
@@ -1267,6 +1355,13 @@ async function init() {
   });
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
+  $('#ctx-meter')?.addEventListener('click', () => toggleCtxPopup());
+  document.addEventListener('click', (e) => {
+    if (!ctxPopupOpen) return;
+    const t = e.target;
+    if (t && typeof t.closest === 'function' && t.closest('#ctx-meter, #ctx-popup')) return;
+    hideCtxPopup();
+  });
 
   await setStatusModel();
   await checkLlm();

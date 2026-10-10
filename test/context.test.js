@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { estimateTokens, messageTokens, contextTokens, trimContext } from '../src/context.js';
+import { estimateTokens, messageTokens, contextTokens, trimContext, contextBreakdown } from '../src/context.js';
 import { loadAgentsMd, buildSystemPrompt } from '../src/memory.js';
 
 test('token estimation is chars/4 rounded up', () => {
@@ -110,4 +110,40 @@ test('buildSystemPrompt includes workspace and AGENTS.md section', async () => {
   assert.match(p, /Use tabs\./);
   const p2 = await buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: null });
   assert.doesNotMatch(p2, /Project instructions/);
+});
+
+test('contextBreakdown: parts, estimate and real-usage ground truth', () => {
+  const sys = 'S'.repeat(400); // 100 tokens
+  const skills = 'K'.repeat(80); // 20 tokens
+  const defs = [{ type: 'function', function: { name: 'read_file', description: 'reads' } }];
+  const messages = [
+    { role: 'system', content: 'should be skipped' },
+    { role: 'user', content: 'u'.repeat(400) },
+    { role: 'assistant', content: 'a'.repeat(200) },
+    { role: 'tool', tool_call_id: 'c', content: 't'.repeat(400) },
+  ];
+  const bd = contextBreakdown({ systemPrompt: sys, skillsSection: skills, toolDefs: defs, messages });
+  const byLabel = Object.fromEntries(bd.parts.map((p) => [p.label, p.tokens]));
+  assert.equal(byLabel['System prompt'], 100, 'skills text is subtracted from the system prompt part');
+  assert.equal(byLabel['Skills (names + descriptions)'], 20);
+  assert.ok(byLabel['Tool definitions'] > 0);
+  assert.equal(byLabel['Your messages'], 100);
+  assert.equal(byLabel['Model replies'], 50);
+  assert.equal(byLabel['Tool results'], 100);
+  assert.equal(bd.actual, null);
+  assert.equal(bd.estimate, bd.parts.reduce((n, p) => n + p.tokens, 0));
+  assert.equal(bd.used, bd.estimate, 'without usage the estimate is used');
+
+  const withActual = contextBreakdown({
+    systemPrompt: sys, skillsSection: skills, toolDefs: defs, messages,
+    actualPromptTokens: 5000, sinceActual: [{ role: 'user', content: 'n'.repeat(40) }],
+  });
+  assert.equal(withActual.actual, 5000);
+  assert.equal(withActual.used, 5010, 'actual usage + estimate of anything appended after it');
+});
+
+test('contextBreakdown: null skills, empty everything', () => {
+  const bd = contextBreakdown({ systemPrompt: '', skillsSection: null, toolDefs: [], messages: [] });
+  assert.deepEqual(bd.parts, []);
+  assert.equal(bd.used, 0);
 });

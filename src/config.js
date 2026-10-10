@@ -5,11 +5,12 @@ export const DEFAULTS = {
   apiKey: 'local',
   model: 'Qwen3.8-Flash-Next-GGUF-IQ3_M',
   maxSteps: 50,
-  contextLimit: 100000,
+  contextLimit: 140000, // every model is treated as a 140K-token window
+  handoffLimit: 128000, // Code-mode automatic context handoff threshold
   port: 4848,
 };
 
-const NUMERIC = new Set(['maxSteps', 'contextLimit', 'port']);
+const NUMERIC = new Set(['maxSteps', 'contextLimit', 'handoffLimit', 'port']);
 
 /**
  * Load config: defaults, then SQLite `settings` rows, then env overrides
@@ -28,6 +29,8 @@ export function loadConfig() {
   if (process.env.FORGE_MODEL) cfg.model = process.env.FORGE_MODEL;
   cfg.maxSteps = clamp(Number(cfg.maxSteps), 1, 500, DEFAULTS.maxSteps);
   cfg.contextLimit = clamp(Number(cfg.contextLimit), 4000, 1_000_000_000, DEFAULTS.contextLimit);
+  // handoff threshold must leave headroom under the window
+  cfg.handoffLimit = clamp(Number(cfg.handoffLimit), 2000, cfg.contextLimit - 2000, Math.min(DEFAULTS.handoffLimit, cfg.contextLimit - 2000));
   return cfg;
 }
 
@@ -50,6 +53,7 @@ export function publicConfig(cfg) {
     model: cfg.model,
     maxSteps: cfg.maxSteps,
     contextLimit: cfg.contextLimit,
+    handoffLimit: cfg.handoffLimit,
     port: cfg.port,
     apiKeyMasked: maskKey(cfg.apiKey),
     hasApiKey: Boolean(cfg.apiKey),
@@ -64,7 +68,7 @@ export async function saveConfig(partial = {}) {
   const current = {};
   const stored = getAllSettings();
   for (const key of Object.keys(DEFAULTS)) if (stored[key] !== undefined) current[key] = stored[key];
-  for (const key of ['baseURL', 'model', 'maxSteps', 'contextLimit', 'port']) {
+  for (const key of ['baseURL', 'model', 'maxSteps', 'contextLimit', 'handoffLimit', 'port']) {
     if (partial[key] !== undefined) setSetting(key, partial[key]);
   }
   if (partial.apiKey !== undefined) {

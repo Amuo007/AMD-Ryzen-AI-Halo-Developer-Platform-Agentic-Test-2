@@ -2,7 +2,7 @@
 
 ## Current status
 - Branch: `main` — final pass
-- Doing: task 8 — docs done; one live test, then tag v3.0.0
+- Doing: done — all tests green (174), live test passed, tagged v3.0.0
 - Half-done: nothing; smoke 25/25, all suites green
 - Baseline: v3 work — meter, handoff, rebrand all merged
 
@@ -68,5 +68,5 @@
 - [x] End-to-end manual smoke of every new capability (real bin + mock LLM, scripted) — `scripts/smoke-v3.mjs`, 25/25
 - [x] README: tools, skills, prompt file, reasoning, context meter/handoff, MCP config
 - [x] DECISIONS.md updated; PROGRESS.md fully ticked
-- [ ] One short live test vs http://192.168.1.252:13305/v1 (reasoning on + off, several tools)
-- [ ] Tag v3.0.0, push main + tag
+- [x] One short live test vs http://192.168.1.252:13305/v1 (reasoning on + off, several tools)
+- [x] Tag v3.0.0, push main + tag

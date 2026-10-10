@@ -16,6 +16,7 @@ import { contextBreakdown } from './context.js';
 import { buildSystemPrompt, buildChatSystemPrompt, loadAgentsMd } from './memory.js';
 import { toolDefs, activeToolList, getDisabledTools, setToolEnabled } from './tools/index.js';
 import { saveImage, imageExists, MAX_IMAGES_PER_MESSAGE } from './images.js';
+import * as browser from './browser/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -146,6 +147,7 @@ export function createRequestHandler() {
         const id = url.searchParams.get('sessionId') ?? '';
         const turn = getTurn(id);
         if (turn && !turn.finished) turn.stop();
+        browser.closeConversation(id).catch(() => {});
         const ok = deleteConversation(id);
         return sendJson(res, ok ? 200 : 404, { deleted: ok });
       }
@@ -388,6 +390,53 @@ export function createRequestHandler() {
         return;
       }
 
+      if (req.method === 'GET' && p === '/api/browser/state') {
+        const id = url.searchParams.get('sessionId');
+        if (!id) return sendJson(res, 400, { error: 'sessionId is required' });
+        return sendJson(res, 200, browser.getState(id));
+      }
+      if (req.method === 'POST' && p === '/api/browser/screencast') {
+        const body = await readBody(req);
+        const id = String(body.sessionId ?? '');
+        if (body.start === false) {
+          const page = browser.getPage(id);
+          if (page) await page.stopScreencast();
+          return sendJson(res, 200, { ok: true, streaming: false });
+        }
+        const page = await browser.ensurePage(id, {});
+        await page.startScreencast({ everyNthFrame: Number(body.everyNthFrame) || 1 });
+        return sendJson(res, 200, { ok: true, streaming: true });
+      }
+      if (req.method === 'GET' && p === '/api/browser/events') {
+        const id = url.searchParams.get('sessionId');
+        if (!id) return sendJson(res, 400, { error: 'sessionId is required' });
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+        res.write(': connected\n\n');
+        const keepAlive = setInterval(() => {
+          try {
+            res.write(': ka\n\n');
+          } catch {
+            /* ignore */
+          }
+        }, 15000);
+        const send = (ev) => {
+          try {
+            res.write(`data: ${JSON.stringify(ev)}\n\n`);
+          } catch {
+            /* ignore */
+          }
+        };
+        const state = browser.getState(id);
+        send({ type: 'state', ...state });
+        if (state.url) send({ type: 'navigation', url: state.url, title: state.title });
+        const off = browser.subscribe(id, send);
+        req.on('close', () => {
+          clearInterval(keepAlive);
+          off();
+        });
+        return;
+      }
+
       if (req.method === 'GET' && p === '/api/stats') {
         const range = ['all', '30d', '7d'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : 'all';
         // make sure any legacy sessions in known workspaces are present before counting
@@ -431,6 +480,7 @@ export async function startServer({ port = 4848, host = '127.0.0.1', openBrowser
         for (const turn of turnsMap.values()) if (!turn.finished) turn.stop();
         killAllJobs();
         stopAllMcp();
+        browser.shutdownAll().catch(() => {});
         server.closeAllConnections?.();
         server.close(resolve);
       }),

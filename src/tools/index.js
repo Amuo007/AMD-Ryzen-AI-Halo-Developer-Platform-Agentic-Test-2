@@ -5,6 +5,7 @@ import { globFiles } from './glob.js';
 import { shellJobs, killShell } from './jobs.js';
 import { todo } from './todo.js';
 import { useSkill } from '../skills.js';
+import { browserTool } from './browser.js';
 import { mcpToolDefs, runMcpTool } from '../mcp.js';
 import { getSetting, setSetting } from '../db.js';
 
@@ -212,6 +213,32 @@ export const toolDefs = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'browser',
+      description:
+        'Control an invisible local headless Chrome (Code mode only) to view and test what you build. LOCAL ONLY: open() accepts localhost / 127.0.0.1 / [::1] / *.localhost (any port) or file:// paths inside the workspace; anything else is refused and off-localhost navigation is stopped. One action per call: open(url), back, reload, screenshot (optional full:true for full page — you will SEE the image), snapshot (compact text outline with numbered [ref]s for links/buttons/inputs — use the ref for click/type/hover/scroll), click(ref|selector|x,y), type(ref|selector,text), key(name e.g. Enter), scroll(x,y or to_ref), hover(ref|selector|x,y), resize(desktop|tablet|mobile), console (messages/errors/failed requests since the last check), wait_for(text|selector, timeout). After each screenshot, write 1-2 short lines saying what you see and what you will fix next.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['open', 'back', 'reload', 'screenshot', 'snapshot', 'click', 'type', 'key', 'scroll', 'hover', 'resize', 'console', 'wait_for'], description: 'The browser action to run.' },
+          url: { ...string, description: 'For open: a localhost / file-in-workspace URL.' },
+          full: { type: 'boolean', description: 'For screenshot: capture the full page instead of just the viewport.' },
+          ref: { type: 'integer', description: 'Element ref number from the last snapshot.' },
+          selector: { ...string, description: 'CSS selector (alternative to ref).' },
+          x: { type: 'number', description: 'X coordinate (click/hover).' },
+          y: { type: 'number', description: 'Y coordinate (click/hover).' },
+          text: { ...string, description: 'Text to type, or text to wait_for.' },
+          key: { ...string, description: 'Key name for key (Enter, Tab, Escape, …).' },
+          to_ref: { type: 'integer', description: 'For scroll: scroll this ref into view.' },
+          size: { type: 'string', enum: ['desktop', 'tablet', 'mobile'], description: 'For resize.' },
+          timeout: { type: 'integer', description: 'For wait_for: max ms (default 10000).' },
+        },
+        required: ['action'],
+      },
+    },
+  },
 ];
 
 const impl = new Map([
@@ -226,6 +253,7 @@ const impl = new Map([
   ['kill_shell', killShell],
   ['todo', todo],
   ['use_skill', useSkill],
+  ['browser', browserTool],
 ]);
 
 export function getTool(name) {
@@ -238,7 +266,7 @@ export function isReadOnlyTool(name) {
 
 /** Tools that never change anything in the workspace and never ask for approval. */
 export function isAutoAllowed(name) {
-  return isReadOnlyTool(name) || name === 'todo' || name === 'kill_shell';
+  return isReadOnlyTool(name) || name === 'todo' || name === 'kill_shell' || name === 'browser';
 }
 
 export function toolNames() {

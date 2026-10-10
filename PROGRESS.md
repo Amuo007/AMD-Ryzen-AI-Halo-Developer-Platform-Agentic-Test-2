@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 4: images + invisible local browser
 
 ## Current status
-- Branch: `feat/browser-card` — Phase 4 §4 done; next: §5 visual check loop
-- Doing: browser card + inline screenshots shipped (§4); fake-CDP tests tracked in §8
+- Branch: `feat/visual-loop` — Phase 4 §5 done; next: §6 browser side panel
+- Doing: visual check loop shipped (prompt + tests)
 - Half-done: nothing
-- Baseline: v3.0.0 — 174 tests green (now 198)
+- Baseline: v3.0.0 — 174 tests green (now 199)
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -141,11 +141,11 @@ local test pages; the live model server is never called during development.
       Halo's theme incl. dark mode
 
 ## 5. Visual check loop (`feat/visual-loop`)
-- [ ] System prompt: build UI → start app (background shell) → open → screenshot +
+- [x] System prompt: build UI → start app (background shell) → open → screenshot +
       console → compare vs request/reference image → fix → reload → repeat until right
-- [ ] Polish pass checklist (overlap, cut-off text, spacing, contrast, broken images,
+- [x] Polish pass checklist (overlap, cut-off text, spacing, contrast, broken images,
       dead buttons, console errors, mobile) + list remaining ideas instead of guessing
-- [ ] "open localhost:3000 and tell me what can be improved" review flow works
+- [x] "open localhost:3000 and tell me what can be improved" review flow works
 
 ## 6. Browser side panel (`feat/browser-panel`)
 - [ ] Right-side panel, hidden by default; opens from card "Open" or header browser

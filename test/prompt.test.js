@@ -118,3 +118,28 @@ test('built prompts carry the Identity section with the real model id', async ()
   // fillIdentity leaves custom prompts without the placeholder untouched
   assert.equal(fillIdentity('no placeholder here', 'M'), 'no placeholder here');
 });
+
+test('visual check loop: default Code prompt carries the verify loop, polish pass and review flow', async () => {
+  const ws = await mkws();
+  const r = await resolvePrompt({ mode: 'code', workspace: ws });
+  assert.match(r.text, /Visual check loop/);
+  assert.match(r.text, /run_shell \{ background: true \}/, 'starts the app as a background shell');
+  assert.match(r.text, /browser \{ action: "open"/, 'opens the page in the browser');
+  assert.match(r.text, /screenshot/);
+  assert.match(r.text, /console/);
+  assert.match(r.text, /reference\/mockup/, 'compares against user reference images');
+  assert.match(r.text, /reload/);
+  assert.match(r.text, /never say "done" on a screen you never saw/i);
+  assert.match(r.text, /1–2 short lines|1-2 short lines/, 'narrates after every screenshot');
+  assert.match(r.text, /Polish pass/);
+  for (const item of [/overlapping or\s+cut-off text/, /spacing/, /low contrast/, /broken images/, /dead buttons/, /console errors/, /mobile/]) {
+    assert.match(r.text, item);
+  }
+  assert.match(r.text, /instead of guessing/, 'lists remaining ideas instead of guessing');
+  assert.match(r.text, /Review requests/);
+  assert.match(r.text, /open localhost:3000 and\s+tell me what can be improved/);
+  assert.match(r.text, /Do not\s+apply the fixes unless the user asked/, 'review-only by default');
+  // the loop instruction is NOT in the chat prompt (no browser there)
+  const c = await resolvePrompt({ mode: 'chat' });
+  assert.ok(!/Visual check loop/.test(c.text), 'chat prompt unchanged');
+});

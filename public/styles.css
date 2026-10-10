@@ -71,6 +71,10 @@ button { font: inherit; cursor: pointer; }
   border-right: 1px solid var(--border);
 }
 .side-top { display: flex; align-items: center; gap: 12px; padding: 2px 4px 6px; }
+.collapse-btn { margin-left: auto; width: 30px; height: 30px; flex: none; border: 1px solid transparent; background: none; color: var(--text-dim); border-radius: 8px; display: grid; place-items: center; padding: 0; }
+.collapse-btn:hover { background: var(--bg-hover); color: var(--text); }
+#app.side-collapsed #sidebar { display: none; }
+#app.side-collapsed .menu-btn { display: grid; }
 .brand-mini { font-family: var(--serif); font-weight: 600; font-size: 15.5px; letter-spacing: 0.2px; white-space: nowrap; display: inline-flex; align-items: center; }
 .brand-icon { color: var(--accent); margin-right: 7px; display: inline-flex; align-items: center; }
 .mode-switch { display: inline-flex; gap: 2px; background: var(--bg-hover); border-radius: 9px; padding: 2px; }
@@ -132,7 +136,7 @@ button { font: inherit; cursor: pointer; }
 .menu-btn { display: none; width: 36px; height: 36px; flex: none; border: 1px solid transparent; background: none; color: var(--text-dim); border-radius: 9px; place-items: center; padding: 0; }
 .menu-btn:hover { background: var(--bg-hover); color: var(--text); }
 .top-icon { color: var(--text-dim); display: grid; place-items: center; }
-#top-title { font-family: var(--serif); font-size: 18px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
+#top-title { font-family: var(--serif); font-size: 15px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot.llm-ok { background: var(--ok); }
 .dot.llm-bad { background: var(--danger); }
@@ -142,7 +146,7 @@ button { font: inherit; cursor: pointer; }
 .topbar-right { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
 .top-model { font-size: 13px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
 
-#messages { flex: 1; overflow-y: auto; padding: 8px 0 12px; }
+#messages { flex: 1; overflow-y: auto; padding: 8px 0 12px; --col-w: 760px; --col-gutter: 24px; }
 .msg { max-width: 760px; margin: 0 auto 22px; padding: 0 24px; }
 .msg .role { font-size: 12px; color: var(--text-dim); margin-bottom: 5px; font-weight: 600; letter-spacing: 0.3px; }
 .msg-user { display: flex; flex-direction: column; align-items: flex-end; }
@@ -181,6 +185,22 @@ button { font: inherit; cursor: pointer; }
 .msg-actions button { border: none; background: none; color: var(--text-faint); width: 30px; height: 28px; border-radius: 7px; display: grid; place-items: center; }
 .msg-actions button:hover { background: var(--bg-hover); color: var(--text-dim); }
 .msg-actions button.on { color: var(--accent); }
+
+/* keep standalone cards aligned with the centered chat column */
+#messages > .tool-card,
+#messages > .perm-card,
+#messages > .edits-card,
+#messages > .handoff-card {
+  width: min(var(--col-w), calc(100% - 2 * var(--col-gutter)));
+  margin-left: auto;
+  margin-right: auto;
+}
+#messages > .browser-card,
+#messages > .shot-figure {
+  width: min(520px, calc(100% - 2 * var(--col-gutter)));
+  margin-left: max(var(--col-gutter), calc((100% - var(--col-w)) / 2 + var(--col-gutter)));
+  margin-right: auto;
+}
 
 /* ================= tool cards ================= */
 .tool-card { border: 1px solid var(--border); border-radius: 12px; margin: 10px 0; background: var(--bg-card); overflow: hidden; }
@@ -228,7 +248,8 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 .welcome { max-width: 720px; margin: 0 auto; padding: 0 24px; }
 .welcome.centered { min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
 .greeting { font-family: var(--serif); font-weight: 500; font-size: 30px; margin: 0 0 26px; display: flex; align-items: center; gap: 14px; }
-.greeting .burst { color: var(--accent); font-size: 30px; }
+.greeting .burst { color: var(--accent); font-size: 30px; display: inline-flex; align-items: center; }
+.greeting .burst svg { width: 28px; height: 17px; }
 
 /* stats dashboard */
 .stats-card { background: var(--bg-alt); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
@@ -575,12 +596,14 @@ dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 0
   .menu-btn { display: grid; }
   #topbar { padding: 8px 12px; }
   .top-model { max-width: 110px; }
-  #top-title { font-size: 16px; }
+  #top-title { font-size: 14px; }
 
   .msg { padding: 0 14px; margin-bottom: 18px; }
+  #messages { --col-gutter: 14px; }
   .welcome { padding: 0 14px; }
   .greeting { font-size: 23px; gap: 10px; margin-bottom: 18px; }
   .greeting .burst { font-size: 22px; }
+  .greeting .burst svg { width: 22px; height: 13px; }
   .stats-card { padding: 12px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-tile { padding: 10px 12px; }

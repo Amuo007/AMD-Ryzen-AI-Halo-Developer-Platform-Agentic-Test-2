@@ -47,6 +47,10 @@ class StubEl {
   showModal() {}
   close() {}
   focus() {}
+  click() {
+    // dispatch a synthetic click to click handlers (used by attach button tests)
+    for (const fn of this.__handlers('click')) fn({ preventDefault() {}, stopPropagation() {}, target: this });
+  }
   texts(out = []) {
     if (this.textContent) out.push(this.textContent);
     for (const c of this.children) if (c instanceof StubEl) c.texts(out);
@@ -73,6 +77,12 @@ export async function bootApp({ storage = {}, fetchStub } = {}) {
     const route = DEFAULT_ROUTES.find(([p]) => u.includes(p));
     return { ok: true, status: 200, json: async () => (route ? route[1] : {}) };
   };
+  const fetchImpl = fetchStub
+    ? async (url, opts) => {
+        const r = await fetchStub(url, opts);
+        return r === undefined || r === null ? defFetch(url, opts) : r;
+      }
+    : defFetch;
   const src = fs.readFileSync(path.join(process.cwd(), 'public', 'app.js'), 'utf8');
   const els = new Map();
   const document = {
@@ -94,7 +104,7 @@ export async function bootApp({ storage = {}, fetchStub } = {}) {
       getItem: (k) => (Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null),
       setItem: (k, v) => { storage[k] = String(v); },
     },
-    fetch: fetchStub || defFetch,
+    fetch: fetchImpl,
     setInterval: () => 0,
     clearInterval: () => {},
     setTimeout: (fn, ms) => setTimeout(fn, ms),

@@ -7,6 +7,7 @@ import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory
 import { discoverSkills, skillsSectionText } from './skills.js';
 import { appendMessage, getConversation, loadMessages } from './db.js';
 import { ensureConversation } from './conversations.js';
+import { materializeForModel } from './images.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
@@ -150,12 +151,13 @@ export function getTurn(sessionId) {
  * results, repeat until the model stops calling tools, the step budget is
  * exhausted, the user stops it, or a hard error occurs.
  */
-export async function runTurn(turn, userMessage) {
+export async function runTurn(turn, userMessage, images = []) {
   const config = loadConfig();
+  const vision = config.modelSupportsImages === true;
   const signal = turn.abortController.signal;
   const isChat = turn.agentMode === 'chat';
-  turn.emit({ type: 'user', message: userMessage, mode: turn.mode, agentMode: turn.agentMode });
-  await appendMessage(turn.sessionId, { role: 'user', content: userMessage });
+  turn.emit({ type: 'user', message: userMessage, mode: turn.mode, agentMode: turn.agentMode, images });
+  await appendMessage(turn.sessionId, { role: 'user', content: userMessage, images });
   // history: everything since the latest handoff marker (older rows stay in the session, readable)
   const messages = historyFromRows(loadMessages(turn.sessionId));
 
@@ -172,7 +174,7 @@ export async function runTurn(turn, userMessage) {
       if (turn.stopped) break;
       stepUsage = null;
       if (!isChat && !turn.handoffSkipped) {
-        const next = contextTokens([{ role: 'system', content: systemPrompt }, ...messages]) + usageCorrection;
+        const next = contextTokens([{ role: 'system', content: systemPrompt }, ...materializeForModel(messages, { vision })]) + usageCorrection;
         if (next >= config.handoffLimit) {
           const done = await performHandoff(turn, config, { systemPrompt, messages, signal });
           usageCorrection = 0;
@@ -180,7 +182,7 @@ export async function runTurn(turn, userMessage) {
           continue;
         }
       }
-      const context = trimContext([{ role: 'system', content: systemPrompt }, ...messages], config.contextLimit);
+      const context = trimContext([{ role: 'system', content: systemPrompt }, ...materializeForModel(messages, { vision })], config.contextLimit);
       const sentEstimate = contextTokens(context);
       const result = await streamChatCompletion({
         baseURL: config.baseURL,
@@ -322,7 +324,7 @@ async function performHandoff(turn, config, { systemPrompt, messages, signal }) 
   return true;
 }
 
-export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code', reasoning }) {
+export async function startTurn({ sessionId, workspace, message, mode, agentMode = 'code', reasoning, images = [] }) {
   if (turns.has(String(sessionId))) {
     const existing = turns.get(String(sessionId));
     if (!existing.finished) throw Object.assign(new Error('A turn is already running for this session'), { status: 409 });
@@ -345,6 +347,6 @@ export async function startTurn({ sessionId, workspace, message, mode, agentMode
   });
   turns.set(turn.sessionId, turn);
   // run detached
-  runTurn(turn, message);
+  runTurn(turn, message, images);
   return turn;
 }

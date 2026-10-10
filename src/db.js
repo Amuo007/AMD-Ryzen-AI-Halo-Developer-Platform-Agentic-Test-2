@@ -60,10 +60,23 @@ export function openDatabase(file) {
       todos           TEXT NOT NULL,
       updated_at      TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS images (
+      id              TEXT PRIMARY KEY,
+      conversation_id TEXT,
+      source          TEXT NOT NULL DEFAULT 'user',
+      mime            TEXT NOT NULL,
+      path            TEXT NOT NULL,
+      width           INTEGER NOT NULL DEFAULT 0,
+      height          INTEGER NOT NULL DEFAULT 0,
+      bytes           INTEGER NOT NULL DEFAULT 0,
+      created_at      TEXT NOT NULL
+    );
   `);
   // migrations for databases created before a column existed
   const convCols = db.prepare('PRAGMA table_info(conversations)').all().map((c) => c.name);
   if (!convCols.includes('reasoning')) db.exec("ALTER TABLE conversations ADD COLUMN reasoning TEXT NOT NULL DEFAULT 'auto'");
+  const msgCols = db.prepare('PRAGMA table_info(messages)').all().map((c) => c.name);
+  if (!msgCols.includes('images')) db.exec('ALTER TABLE messages ADD COLUMN images TEXT');
   return db;
 }
 
@@ -249,7 +262,7 @@ export function appendMessage(conversationId, message, { model = null, usage = n
   const now = createdAt ?? new Date().toISOString();
   const res = db
     .prepare(
-      'INSERT INTO messages (conversation_id, role, content, tool_calls, tool_call_id, name, model, prompt_tokens, completion_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      'INSERT INTO messages (conversation_id, role, content, tool_calls, tool_call_id, name, model, prompt_tokens, completion_tokens, images, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
     .run(
       String(conversationId),
@@ -261,6 +274,7 @@ export function appendMessage(conversationId, message, { model = null, usage = n
       model,
       usage?.promptTokens ?? 0,
       usage?.completionTokens ?? 0,
+      Array.isArray(message.images) && message.images.length ? JSON.stringify(message.images.map(String)) : null,
       now
     );
   touchConversation(conversationId);
@@ -281,6 +295,14 @@ function rowToMessage(row) {
   if (row.tool_calls) m.tool_calls = JSON.parse(row.tool_calls);
   if (row.tool_call_id) m.tool_call_id = row.tool_call_id;
   if (row.name) m.name = row.name;
+  if (row.images) {
+    try {
+      const ids = JSON.parse(row.images);
+      if (Array.isArray(ids) && ids.length) m.images = ids.map(String);
+    } catch {
+      /* corrupt images column → treated as none */
+    }
+  }
   return m;
 }
 
@@ -305,6 +327,27 @@ export function deleteLastAssistantMessages(conversationId) {
   if (!last || last.role !== 'assistant') return false;
   db.prepare('DELETE FROM messages WHERE conversation_id = ? AND id >= ?').run(String(conversationId), last.id);
   return true;
+}
+
+/* ---------------- images ---------------- */
+
+export function addImage({ id, conversationId = null, source = 'user', mime, path: file, width = 0, height = 0, bytes = 0, createdAt = null }) {
+  const now = createdAt ?? new Date().toISOString();
+  getDb()
+    .prepare('INSERT INTO images (id, conversation_id, source, mime, path, width, height, bytes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(String(id), conversationId == null ? null : String(conversationId), String(source), String(mime), String(file), Number(width) || 0, Number(height) || 0, Number(bytes) || 0, now);
+  return { id: String(id), conversationId: conversationId == null ? null : String(conversationId), source, mime, path: file, width: Number(width) || 0, height: Number(height) || 0, bytes: Number(bytes) || 0, createdAt: now };
+}
+
+export function getImage(id) {
+  const row = getDb().prepare('SELECT * FROM images WHERE id = ?').get(String(id));
+  if (!row) return null;
+  return { id: row.id, conversationId: row.conversation_id, source: row.source, mime: row.mime, path: row.path, width: row.width, height: row.height, bytes: row.bytes, createdAt: row.created_at };
+}
+
+export function listConversationImages(conversationId) {
+  const rows = getDb().prepare('SELECT * FROM images WHERE conversation_id = ? ORDER BY id').all(String(conversationId));
+  return rows.map((row) => ({ id: row.id, source: row.source, mime: row.mime, width: row.width, height: row.height, bytes: row.bytes }));
 }
 
 /* ---------------- stats ---------------- */

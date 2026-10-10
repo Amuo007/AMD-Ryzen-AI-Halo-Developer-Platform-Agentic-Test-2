@@ -84,26 +84,26 @@ workspace; off-localhost navigation is stopped and reported. Tests use the mock 
 local test pages; the live model server is never called during development.
 
 ## 0. Small fixes first (`feat/identity-reasoning`)
-- [ ] a) Identity: "Identity" section near the top of `prompt/system.md` + `prompt/chat.md`
+- [x] a) Identity: "Identity" section near the top of `prompt/system.md` + `prompt/chat.md`
       (name Halo, never impersonate other assistants, model id filled at build time,
       "You are **Halo AI Harness**" → "You are **Halo**"); built prompt contains the
       identity section + real configured model id (tests)
-- [ ] b) Reasoning: "Medium" in the Think selector (Auto/High/Medium/Low/Off);
+- [x] b) Reasoning: "Medium" in the Think selector (Auto/High/Medium/Low/Off);
       medium → `chat_template_kwargs {enable_thinking:true, thinking:true}` +
       `reasoning_effort:"medium"`; existing auto/high/low/off unchanged; tests
 
 ## 1. Image input — Chat AND Code (`feat/image-input`)
-- [ ] Attach 3 ways: paperclip/+ button, paste (Cmd/Ctrl+V), drag-and-drop on the chat
-- [ ] Thumbnails above the input with × to remove before sending; max 5 images/message,
+- [x] Attach 3 ways: paperclip/+ button, paste (Cmd/Ctrl+V), drag-and-drop on the chat
+- [x] Thumbnails above the input with × to remove before sending; max 5 images/message,
       PNG/JPEG/WebP/GIF only; browser (canvas) downscale to max 1568px long edge
-- [ ] `POST /api/images` + `GET /api/images/:id`: files stored in Halo's data dir,
+- [x] `POST /api/images` + `GET /api/images/:id`: files stored in Halo's data dir,
       referenced by id in SQLite (no base64 blobs in the DB)
-- [ ] Model sees OpenAI-style content parts: `[{type:"text"}, {type:"image_url",…}]`
-- [ ] User bubbles show images; click to enlarge (lightbox); old conversations reload
+- [x] Model sees OpenAI-style content parts: `[{type:"text"}, {type:"image_url",…}]`
+- [x] User bubbles show images; click to enlarge (lightbox); old conversations reload
       with their images
-- [ ] Setting "Model supports images" (default on); off → attach disabled + tooltip,
+- [x] Setting "Model supports images" (default on); off → attach disabled + tooltip,
       browser screenshots fall back to text snapshots
-- [ ] Tests: upload paths (button/paste/drop via DOM harness), size/type limits,
+- [x] Tests: upload paths (button/paste/drop via DOM harness), size/type limits,
       storage + route, message format, reload, vision-off fallback
 
 ## 2. Headless browser engine (`src/browser/`) (`feat/browser-engine`)

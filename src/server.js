@@ -15,6 +15,7 @@ import { mcpEnsure, stopAllMcp } from './mcp.js';
 import { contextBreakdown } from './context.js';
 import { buildSystemPrompt, buildChatSystemPrompt, loadAgentsMd } from './memory.js';
 import { toolDefs, activeToolList, getDisabledTools, setToolEnabled } from './tools/index.js';
+import { saveImage, imageExists, MAX_IMAGES_PER_MESSAGE } from './images.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -151,7 +152,10 @@ export function createRequestHandler() {
 
       if (req.method === 'POST' && p === '/api/chat') {
         const body = await readBody(req);
-        if (typeof body.message !== 'string' || !body.message.trim()) return sendJson(res, 400, { error: 'message is required' });
+        const rawImages = Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [];
+        if (rawImages.length > MAX_IMAGES_PER_MESSAGE) return sendJson(res, 400, { error: `max ${MAX_IMAGES_PER_MESSAGE} images per message` });
+        const images = rawImages;
+        if ((typeof body.message !== 'string' || !body.message.trim()) && !images.length) return sendJson(res, 400, { error: 'message is required' });
         const agentMode = body.agentMode === 'chat' ? 'chat' : 'code';
         let workspace = null;
         if (agentMode === 'code') {
@@ -168,7 +172,7 @@ export function createRequestHandler() {
         const sid = sessionId ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         let turn;
         try {
-          turn = await startTurn({ sessionId: sid, workspace, message: body.message.trim(), mode, agentMode, reasoning: reasoning ?? undefined });
+          turn = await startTurn({ sessionId: sid, workspace, message: (body.message ?? '').trim(), mode, agentMode, reasoning: reasoning ?? undefined, images });
         } catch (err) {
           return sendJson(res, err.status ?? 500, { error: err.message });
         }
@@ -365,6 +369,23 @@ export function createRequestHandler() {
         } finally {
           clearTimeout(timer);
         }
+      }
+
+      if (req.method === 'POST' && p === '/api/images') {
+        const body = await readBody(req, 24 * 1024 * 1024);
+        const sessionId = body.sessionId != null ? String(body.sessionId) : null;
+        const source = ['user', 'screenshot'].includes(body.source) ? body.source : 'user';
+        const img = saveImage({ dataUrl: body.data, conversationId: sessionId, source, width: body.width ?? 0, height: body.height ?? 0 });
+        return sendJson(res, 201, { id: img.id, url: `/api/images/${img.id}`, mime: img.mime, width: img.width, height: img.height, bytes: img.bytes, source: img.source });
+      }
+      if (req.method === 'GET' && p.startsWith('/api/images/')) {
+        const id = decodeURIComponent(p.slice('/api/images/'.length));
+        const img = imageExists(id);
+        if (!img) return sendJson(res, 404, { error: 'image not found' });
+        const stat = fs.statSync(img.path);
+        res.writeHead(200, { 'Content-Type': img.mime, 'Content-Length': stat.size, 'Cache-Control': 'public, max-age=31536000, immutable' });
+        fs.createReadStream(img.path).pipe(res);
+        return;
       }
 
       if (req.method === 'GET' && p === '/api/stats') {

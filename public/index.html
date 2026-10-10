@@ -120,9 +120,14 @@
               </g>
             </svg>
             <div class="composer-main">
+              <div id="attach-tray" class="attach-tray hidden"></div>
               <textarea id="input" rows="1" placeholder="How can I help you today?" spellcheck="false"></textarea>
               <div class="composer-bar">
             <div class="composer-left">
+              <button id="attach-btn" class="attach-btn" title="Attach images (PNG/JPEG/WebP/GIF, max 5)" aria-label="Attach images">
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <input type="file" id="attach-input" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden />
               <span id="mode-wrap" class="mode-wrap">
                 <span class="perm-label">Permission</span>
                 <select id="mode-select" title="Permission mode">
@@ -192,7 +197,12 @@
         <label>Max steps<input id="set-maxsteps" type="number" min="1" max="500" /></label>
         <label>Context limit (tokens)<input id="set-contextlimit" type="number" min="4000" step="1000" /></label>
       </div>
-      <p class="hint">Environment variables FORGE_BASE_URL / FORGE_API_KEY / FORGE_MODEL override these.</p>
+      <label class="check-row"><input type="checkbox" id="set-images" /> <span>Model supports images (uncheck to hide the attach button; browser screenshots fall back to text)</span></label>
+      <div class="row">
+        <label>Session token budget<input id="set-tokenbudget" type="number" min="1000" step="10000" /></label>
+        <label>Browser path (empty = auto-detect)<input id="set-browser-path" type="text" spellcheck="false" placeholder="/Applications/Google Chrome.app/…" /></label>
+      </div>
+      <p class="hint">Environment variables FORGE_BASE_URL / FORGE_API_KEY / FORGE_MODEL / FORGE_BROWSER_PATH override these.</p>
       <menu>
         <button value="cancel" class="btn ghost">Cancel</button>
         <button value="save" class="btn primary" id="settings-save">Save</button>
@@ -250,6 +260,12 @@
       <span class="spacer"></span>
       <button id="browse-choose" class="btn primary">Use this folder</button>
     </menu>
+  </dialog>
+
+  <dialog id="lightbox" class="lightbox">
+    <button id="lightbox-close" class="lightbox-close btn ghost" title="Close">✕</button>
+    <img id="lightbox-img" alt="Enlarged" />
+    <div id="lightbox-caption" class="lightbox-caption"></div>
   </dialog>
 
   <script src="app.js"></script>

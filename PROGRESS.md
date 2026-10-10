@@ -195,3 +195,17 @@ local test pages; the live model server is never called during development.
       chat, differences noticed + fixed + re-checked; Chat mode — image question +
       "who are you?" (must answer Halo)
 - [ ] Tag v4.0.0, push main + tag
+
+## 10. UI polish (`feat/ui-polish`)
+- [x] Mobile/narrow layout (≤860px): sidebar becomes an off-canvas drawer behind a ☰
+      hamburger (scrim tap, Esc, new chat and session open close it); chat, composer,
+      stats grid (2-col), heatmap (scrollable strip), todo/budget rows and dialogs all
+      reflow — the previous CSS had no breakpoint at all and mobile was unreadable
+- [x] Dialogs scroll instead of overflowing the screen; settings two-column rows wrap;
+      keyboard :focus-visible ring; 16px inputs stop iOS focus-zoom
+- [x] Theme: first visit follows the OS dark-mode preference (explicit toggle choice
+      still wins); `color-scheme` per theme darkens native selects/scrollbars;
+      theme-color metas tint the mobile browser chrome
+- [x] Topbar: long model name ellipsizes with a full-name tooltip; browser button shows
+      an active state while the side panel is open
+- [x] +2 tests (212 green, mock-only); smoke-v4 re-run green

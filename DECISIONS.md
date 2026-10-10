@@ -226,3 +226,37 @@
   **auto-skips** when no Chrome/Chromium/Edge is installed.
 - `scripts/smoke-v4.mjs` boots the real bin with the mock LLM and checks all v4 surfaces
   end-to-end (20 checks).
+
+## Phase 5 — UI polish (feat/ui-polish)
+
+### Responsive strategy
+- One breakpoint (860px) turned the fixed 300px sidebar into an **off-canvas drawer**
+  (hamburger in the topbar, scrim behind it) instead of reflowing three columns into a
+  phone. The drawer closes on scrim tap, Esc, new chat and session open, so the chat
+  always owns the small viewport. Above the breakpoint nothing moves — desktop layout is
+  byte-for-byte the same as before.
+- Mobile-specific adaptations are deliberately few: 2-col stats grid, horizontally
+  scrollable 91-day heatmap strip (wrapping made a ragged block), wrapped composer bar
+  with the "Permission"/"Think" text labels dropped (the selects keep their titles),
+  16px form fonts (iOS zooms the page when focusing a <16px input), and the browser
+  side panel becomes a right-edge overlay (its drag-resize handle is hidden there —
+  there is nothing to drag against).
+- **Why JS state instead of a checkbox/`:has()` hack**: the open/closed state must also
+  drive Esc handling and auto-close on navigation, so it lives in `state.navOpen`
+  (`setNavOpen()`); CSS only renders it. That keeps it testable in the headless DOM
+  stub, where classList is inert.
+
+### Theming
+- A **first visit follows the OS** (`prefers-color-scheme`) instead of always landing in
+  light; an explicit toggle click still overrules forever (localStorage unchanged).
+  `matchMedia` is `typeof`-guarded because app.js also boots inside the vm sandbox.
+- `color-scheme: light|dark` per theme fixes the one dark-mode eyesore CSS couldn't
+  reach: native `<select>` popups and scrollbars stayed light on a dark UI.
+- Added a global `:focus-visible` ring — keyboard users finally get a focus indicator.
+
+### Small stuff
+- `#top-model` ellipsizes (it wrapped to two lines and stretched the topbar whenever the
+  side panel was open) and carries the full model name as `title`; the browser header
+  button gets an `active` state so it is clear which toggle opened the panel.
+- Dialogs get `max-height: 92dvh + overflow-y: auto` and the settings `.row` pairs wrap —
+  on short screens the Save button was previously unreachable.

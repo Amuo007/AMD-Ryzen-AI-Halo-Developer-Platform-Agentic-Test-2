@@ -104,7 +104,7 @@ test('loadAgentsMd truncates huge files', async () => {
 
 test('buildSystemPrompt includes workspace and AGENTS.md section', async () => {
   const p = await buildSystemPrompt({ workspace: '/tmp/ws', agentsMd: 'Use tabs.' });
-  assert.match(p, /forge/);
+  assert.match(p, /Halo AI Harness/);
   assert.match(p, /\/tmp\/ws/);
   assert.match(p, /AGENTS\.md/);
   assert.match(p, /Use tabs\./);

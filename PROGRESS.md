@@ -61,8 +61,8 @@
 - [x] Tests with tiny limits on mock; merge + push
 
 ## 7. Rebrand: Halo AI Harness (`feat/rebrand`)
-- [ ] Rename user-facing "forge" → "Halo AI Harness" (title, brand, texts; internal `~/.forge` paths & keys unchanged)
-- [ ] Halo image converted to SVG; used as thinking loader (Thought block + while model thinks); existing mascot avatar stays
+- [x] Rename user-facing "forge" → "Halo AI Harness" (title, brand, texts; internal `~/.forge` paths & keys unchanged)
+- [x] Halo image converted to SVG; used as thinking loader (Thought block + while model thinks); existing mascot avatar stays
 
 ## 8. Polish + docs + release
 - [ ] End-to-end manual smoke of every new capability (real bin + mock LLM, scripted)

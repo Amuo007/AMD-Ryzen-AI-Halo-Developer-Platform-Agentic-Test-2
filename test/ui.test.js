@@ -372,3 +372,19 @@ test('handoff UI: handoff/handoff_delta events render a card; handoff rows reope
   assert.match(css, /\.handoff-card/);
   assert.match(css, /\.halo-spin/);
 });
+
+test('rebrand: Halo AI Harness name everywhere users see it', () => {
+  const html = pub('index.html');
+  assert.match(html, /<title>Halo AI Harness<\/title>/);
+  assert.match(html, /brand-mini[\s\S]*Halo AI Harness/);
+  assert.match(html, /Halo AI Harness can make mistakes/);
+  assert.ok(!/>forge</.test(html) && !/forge mascot/.test(html));
+  const app = pub('app.js');
+  assert.match(app, /Halo AI Harness wants to:/);
+});
+
+test('thinking loader: halo SVG spins while reasoning, static when done', () => {
+  const app = pub('app.js');
+  assert.match(app, /haloIconSvg\('halo-spin'\)/, 'spinner halo while thinking');
+  assert.match(app, /think-ico[\s\S]{0,80}haloIconSvg/);
+});

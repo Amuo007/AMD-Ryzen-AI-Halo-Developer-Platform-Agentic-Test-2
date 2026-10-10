@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>forge</title>
+  <title>Halo AI Harness</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%92%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 22'%3E%3Cellipse cx='18' cy='11' rx='13.5' ry='6' fill='none' stroke='%23ef5f33' stroke-width='4.5'/%3E%3Cellipse cx='18' cy='10' rx='13.5' ry='6' fill='none' stroke='%23ff8a5c' stroke-width='2.2'/%3E%3C/svg%3E" />
 </head>
 <body>
   <div id="app">
@@ -19,7 +19,7 @@
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
           </button>
         </div>
-        <span class="brand-mini"><span class="brand-icon">⚒</span>forge</span>
+        <span class="brand-mini"><span class="brand-icon"><svg viewBox="0 0 36 22" width="21" height="13" aria-hidden="true"><ellipse cx="18" cy="11" rx="13.5" ry="6" fill="none" stroke="#ef5f33" stroke-width="4.5"/><ellipse cx="18" cy="10" rx="13.5" ry="6" fill="none" stroke="#ff8a5c" stroke-width="2.2"/></svg></span>Halo AI Harness</span>
       </div>
 
       <div class="search-wrap">
@@ -44,7 +44,7 @@
       </div>
 
       <footer class="side-foot">
-        <span class="user-chip"><span id="user-avatar" class="avatar">F</span><span id="user-name">forge</span></span>
+        <span class="user-chip"><span id="user-avatar" class="avatar">H</span><span id="user-name">Halo AI Harness</span></span>
         <span class="foot-actions">
           <button id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
           <button id="settings-btn" title="Settings" aria-label="Settings">⚙</button>
@@ -77,7 +77,7 @@
       <div id="composer">
         <div class="composer-box">
           <div class="composer-row">
-            <svg id="mascot" class="mascot" viewBox="0 0 124 148" data-state="idle" role="img" aria-label="forge mascot">
+            <svg id="mascot" class="mascot" viewBox="0 0 124 148" data-state="idle" role="img" aria-label="Halo mascot">
               <defs>
                 <linearGradient id="mg-head" x1="30" y1="34" x2="100" y2="92" gradientUnits="userSpaceOnUse">
                   <stop offset="0" stop-color="#ff9a6a" /><stop offset="0.55" stop-color="#f2653c" /><stop offset="1" stop-color="#cc4622" />
@@ -167,7 +167,7 @@
           </div>
           </div>
         </div>
-        <p class="composer-note">forge can make mistakes. Double-check important information.</p>
+        <p class="composer-note">Halo AI Harness can make mistakes. Double-check important information.</p>
       </div>
     </main>
   </div>
@@ -200,7 +200,7 @@
     </form>
     <div class="settings-panel hidden" data-panel="tools">
       <p class="hint">
-        Enable or disable the tools forge may use. Disabled tools are hidden from the model
+        Enable or disable the tools Halo AI Harness may use. Disabled tools are hidden from the model
         and calls to them are rejected. External tools can be added as MCP servers in
         <code>~/.forge/mcp.json</code> or <code>&lt;workspace&gt;/.forge/mcp.json</code>.
       </p>
@@ -219,7 +219,7 @@
       <p class="hint">
         The base prompt is resolved from the first file that exists:
         <code>&lt;workspace&gt;/.forge/system.md</code> → global <code>~/.forge/system.md</code> →
-        the built-in <code>prompt/system.md</code> in the forge repo. A <code>chat.md</code> file at the
+        the built-in <code>prompt/system.md</code> in the Halo AI Harness repo. A <code>chat.md</code> file at the
         same locations does this for Chat mode. <code>AGENTS.md</code> in the workspace is always
         appended as project instructions; <code>~/.forge/append.md</code> extends every prompt.
       </p>
@@ -228,7 +228,7 @@
     <div class="settings-panel hidden" data-panel="skills">
       <p class="hint">
         Skills are folders with a <code>SKILL.md</code> (name + description in frontmatter, instructions
-        in the body) plus optional extra files. forge discovers
+        in the body) plus optional extra files. Halo AI Harness discovers
         <code>&lt;workspace&gt;/.forge/skills/</code> and <code>~/.forge/skills/</code> — workspace skills
         override global ones. Only the names and descriptions go into the model context; the agent loads
         the full instructions with <code>use_skill</code> when a skill matches the work.

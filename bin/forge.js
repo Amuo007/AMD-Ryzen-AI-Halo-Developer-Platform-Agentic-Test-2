@@ -17,7 +17,7 @@ const openBrowser = !argv.includes('--no-open');
 
 try {
   const { url, close } = await startServer({ port, openBrowser });
-  console.log(`forge running at ${url}`);
+  console.log(`Halo AI Harness running at ${url}`);
   console.log('(press Ctrl+C to stop)');
   const shutdown = () => {
     close().then(() => process.exit(0));
@@ -26,9 +26,9 @@ try {
   process.on('SIGTERM', shutdown);
 } catch (err) {
   if (err.code === 'EADDRINUSE') {
-    console.error(`forge: port ${port} is already in use. Try --port <other>`);
+    console.error(`Halo AI Harness: port ${port} is already in use. Try --port <other>`);
   } else {
-    console.error('forge failed to start:', err.message);
+    console.error('Halo AI Harness failed to start:', err.message);
   }
   process.exit(1);
 }

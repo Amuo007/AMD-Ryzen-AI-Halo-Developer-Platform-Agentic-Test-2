@@ -547,6 +547,28 @@ function renderEvent(ev) {
     case 'todo_update':
       renderTodos(ev.todos);
       break;
+    case 'handoff_delta': {
+      if (!state.handoffEl) state.handoffEl = newHandoffCard(true);
+      state.handoffEl.raw += ev.text;
+      state.handoffEl.body.innerHTML = renderMarkdown(state.handoffEl.raw);
+      scrollTop();
+      break;
+    }
+    case 'handoff': {
+      if (state.handoffEl) {
+        state.handoffEl.details.classList.remove('streaming');
+        state.handoffEl.details.open = false;
+        const t = state.handoffEl.details.querySelector('.handoff-title');
+        if (t) t.textContent = 'Context handoff — continuing from this summary';
+        const h = state.handoffEl.details.querySelector('.handoff-halo');
+        if (h) h.innerHTML = haloIconSvg('');
+        state.handoffEl.body.innerHTML = renderMarkdown(ev.summary || state.handoffEl.raw);
+        state.handoffEl = null;
+      } else {
+        renderHandoff(ev.summary);
+      }
+      break;
+    }
     case 'retry':
       setStatusError(`LLM hiccup (${ev.attempt}): ${ev.error} — retrying…`);
       break;
@@ -695,12 +717,37 @@ function hideCtxPopup() {
   $('#ctx-popup')?.classList.add('hidden');
 }
 
-function toggleCtxPopup(force) {
-  const popup = $('#ctx-popup');
+function toggleCtxPopup(force) {  const popup = $('#ctx-popup');
   if (!popup) return;
   ctxPopupOpen = force !== undefined ? force : !ctxPopupOpen;
   popup.classList.toggle('hidden', !ctxPopupOpen);
   if (ctxPopupOpen) updateContextMeter();
+}
+
+/* ---------------- context handoff ---------------- */
+
+function haloIconSvg(cls) {
+  return `<svg class="${cls}" viewBox="0 0 36 22" width="18" height="11" aria-hidden="true"><ellipse cx="18" cy="11" rx="13.5" ry="6" fill="none" stroke="#e8542f" stroke-width="4.5"/><ellipse cx="18" cy="10" rx="13.5" ry="6" fill="none" stroke="#ff8a5c" stroke-width="2.2"/></svg>`;
+}
+
+function newHandoffCard(streaming) {
+  const details = el('details', { class: 'handoff-card' + (streaming ? ' streaming' : '') });
+  details.open = streaming;
+  const head = el('summary', { class: 'handoff-head' });
+  head.appendChild(el('span', { class: 'handoff-halo', html: haloIconSvg(streaming ? 'halo-spin' : '') }));
+  head.appendChild(el('span', { class: 'handoff-title', text: streaming ? 'Writing context handoff…' : 'Context handoff — continuing from this summary' }));
+  const body = el('div', { class: 'handoff-body md' });
+  details.appendChild(head);
+  details.appendChild(body);
+  els.messages.appendChild(details);
+  scrollTop();
+  return { details, body, raw: '', streaming };
+}
+
+function renderHandoff(summary) {
+  const card = newHandoffCard(false);
+  card.body.innerHTML = renderMarkdown(summary || '');
+  return card;
 }
 
 /* ---------------- welcome screens ---------------- */
@@ -907,6 +954,10 @@ async function openSession(id) {
   for (const m of session.messages) {
     if (m.role === 'user') appendUser(m.content);
     else if (m.role === 'assistant') {
+      if (m.name === 'forge:handoff') {
+        renderHandoff(m.content);
+        continue;
+      }
       if (m.content) {
         const bubble = ensureAssistant();
         bubble.__raw = m.content;

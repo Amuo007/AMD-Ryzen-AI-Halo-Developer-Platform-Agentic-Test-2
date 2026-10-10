@@ -550,3 +550,65 @@ test('GET /api/context: breakdown, real usage as ground truth, guards', async ()
   assert.equal(cChat.data.mode, 'chat');
   assert.ok(!cChat.data.parts.some((p) => p.label === 'Tool definitions'));
 });
+
+test('handoff: automatic context handoff in code mode at the limit; chat never hands off', async () => {
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-handoff-'));
+  const u = (p, c) => usageChunk({ prompt_tokens: p, completion_tokens: c, total_tokens: p + c });
+  const SUM = '## Goal\nMake it work.\n\n## Done\nRan a big command.\n\n## Current state\nContext was full.\n\n## Branches & files\n- none\n\n## Next steps\nVerify.';
+  mockHandler = (body) => {
+    const last = body.messages.at(-1);
+    if (typeof last.content === 'string' && last.content.startsWith('SYSTEM: Automatic context handoff')) {
+      return { chunks: [...textChunks(SUM), deltaChunk({}, 'stop'), u(1900, 40)] };
+    }
+    if (last.role === 'user' && last.content === 'do the thing') {
+      return { chunks: [...toolCallChunks('run_shell', JSON.stringify({ command: "printf 'x%.0s' $(seq 1 20000)" })), deltaChunk({ role: 'assistant' }, 'tool_calls'), u(950, 5)] };
+    }
+    return { chunks: [...textChunks('all good'), deltaChunk({}, 'stop'), u(960, 5)] };
+  };
+  const cfg = await req('PUT', '/api/config', { contextLimit: 4000, handoffLimit: 2000 });
+  assert.equal(cfg.status, 200);
+
+  const sessionId = 'apitest-handoff';
+  const r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'do the thing', mode: 'full' });
+  assert.equal(r.status, 202);
+  const events = await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' });
+  const hoff = events.find((ev) => ev.type === 'handoff');
+  assert.ok(hoff, 'handoff event emitted');
+  assert.equal(hoff.summary, SUM);
+  assert.ok(events.some((ev) => ev.type === 'handoff_delta'), 'summary streams to the UI');
+
+  const directiveReq = mock.requests.find((b) => typeof b.messages.at(-1).content === 'string' && b.messages.at(-1).content.startsWith('SYSTEM: Automatic context handoff'));
+  assert.ok(directiveReq, 'handoff directive reached the model');
+  // continuation happens in a fresh context: system + summary only, no name field leak
+  const contIdx = mock.requests.indexOf(directiveReq) + 1;
+  const cont = mock.requests[contIdx];
+  assert.deepEqual(cont.messages.map((m) => m.role), ['system', 'assistant']);
+  assert.equal(cont.messages[1].content, SUM);
+  assert.ok(!('name' in cont.messages[1]));
+
+  // the session keeps every earlier message; the handoff row is marked
+  const s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  const msgs = s.data.session.messages;
+  assert.ok(msgs.some((m) => m.name === 'forge:handoff' && m.content === SUM));
+  assert.ok(msgs.some((m) => m.role === 'user' && m.content === 'do the thing'));
+  assert.ok(msgs.some((m) => m.role === 'tool'));
+
+  // next turn builds history from the handoff marker only
+  const r2 = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'and now?', mode: 'full' });
+  assert.equal(r2.status, 202);
+  await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' });
+  assert.deepEqual(mock.requests.at(-1).messages.map((m) => m.role), ['system', 'assistant', 'assistant', 'user']);
+  assert.equal(mock.requests.at(-1).messages[1].content, SUM);
+  assert.equal(mock.requests.at(-1).messages[3].content, 'and now?');
+
+  // chat mode: usage far above the handoff limit, still no handoff machinery
+  mockHandler = () => ({ chunks: [...textChunks('chat fine'), deltaChunk({}, 'stop'), u(9000, 5)] });
+  const chatEvents = await (async () => {
+    await req('POST', '/api/chat', { sessionId: 'apitest-handoff-chat', agentMode: 'chat', message: 'hi' });
+    return sseCollect({ sessionId: 'apitest-handoff-chat', until: (ev) => ev.type === 'turn_end' });
+  })();
+  assert.ok(!chatEvents.some((ev) => ev.type === 'handoff' || ev.type === 'handoff_delta'));
+  assert.equal(mock.requests.filter((b) => typeof b.messages.at(-1).content === 'string' && b.messages.at(-1).content.startsWith('SYSTEM: Automatic')).length, 1, 'only the code-mode handoff directive');
+
+  await req('PUT', '/api/config', { contextLimit: 140000, handoffLimit: 128000 });
+});

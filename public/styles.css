@@ -280,6 +280,17 @@ pre.result, pre.args { background: var(--bg-input); border: 1px solid var(--bord
 .ctx-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
 .ctx-v { flex: 0 0 auto; min-width: 38px; text-align: right; font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
 .ctx-note { margin-top: 8px; font-size: 10.5px; color: var(--text-faint); }
+
+/* ---------------- context handoff ---------------- */
+.handoff-card { margin: 12px 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-hover); overflow: hidden; }
+.handoff-card.streaming { border-color: var(--accent); }
+.handoff-head { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 9px 13px; font-size: 12.5px; color: var(--text-dim); list-style: none; }
+.handoff-head::-webkit-details-marker { display: none; }
+.handoff-title { font-weight: 600; }
+.handoff-body { padding: 2px 15px 13px; font-size: 13.5px; color: var(--text); }
+.halo-spin { animation: halo-spin 2.2s linear infinite; transform-origin: 50% 50%; }
+@keyframes halo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .halo-spin { animation: none; } }
 .send-btn, .stop-btn {
   width: 34px; height: 34px; border-radius: 50%; border: none; display: grid; place-items: center;
   background: var(--accent); color: #fff;

@@ -360,3 +360,15 @@ test('context meter: ring + popup in composer, Code-mode only, refresh + outside
   assert.match(css, /\.ctx-meter/);
   assert.match(css, /\.ctx-popup/);
 });
+
+test('handoff UI: handoff/handoff_delta events render a card; handoff rows reopen as cards', () => {
+  const app = pub('app.js');
+  assert.match(app, /case 'handoff':/);
+  assert.match(app, /case 'handoff_delta':/);
+  assert.match(app, /newHandoffCard/);
+  assert.match(app, /forge:handoff/, 'handoff rows recognized on session open');
+  assert.match(app, /Writing context handoff/);
+  const css = pub('styles.css');
+  assert.match(css, /\.handoff-card/);
+  assert.match(css, /\.halo-spin/);
+});

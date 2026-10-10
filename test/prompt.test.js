@@ -10,7 +10,7 @@ process.env.FORGE_CONFIG_DIR = path.join(tmp, 'global');
 process.env.FORGE_DATA_DIR = path.join(tmp, 'data');
 
 const { resolvePrompt, promptLocations, globalAppend } = await import('../src/prompt.js');
-const { buildSystemPrompt, buildChatSystemPrompt } = await import('../src/memory.js');
+const { buildSystemPrompt, buildChatSystemPrompt, fillIdentity } = await import('../src/memory.js');
 
 async function mkws() {
   const dir = await fs.mkdtemp(path.join(tmp, 'ws-'));
@@ -95,4 +95,26 @@ test('promptLocations points at workspace/.forge, global dir and repo default', 
   assert.equal(locs.workspace, path.join('/some/ws', '.forge'));
   assert.equal(locs.global, process.env.FORGE_CONFIG_DIR);
   assert.match(locs.default, /prompt$/);
+});
+
+test('built prompts carry the Identity section with the real model id', async () => {
+  const ws = await mkws();
+  const p = await buildSystemPrompt({ workspace: ws, agentsMd: null, model: 'TestModel-42' });
+  assert.match(p, /## Identity/);
+  assert.match(p, /Your name is \*\*Halo\*\*/);
+  assert.match(p, /Never introduce yourself as Qwen, ChatGPT, Claude/);
+  assert.match(p, /run on `TestModel-42` on the\s+user's local server/, 'model id filled at build time');
+  assert.ok(!p.includes('{{model}}'), 'placeholder always resolved');
+  assert.match(p, /You are \*\*Halo\*\*, an autonomous coding agent/);
+  const c = await buildChatSystemPrompt({ model: 'TestModel-42' });
+  assert.match(c, /## Identity/);
+  assert.match(c, /run on `TestModel-42` on the\s+user's local server/);
+  assert.ok(!c.includes('{{model}}'));
+  // default: fills from the configured model (env override)
+  process.env.FORGE_MODEL = 'CfgModel-7';
+  const d = await buildChatSystemPrompt();
+  assert.match(d, /run on `CfgModel-7`/);
+  delete process.env.FORGE_MODEL;
+  // fillIdentity leaves custom prompts without the placeholder untouched
+  assert.equal(fillIdentity('no placeholder here', 'M'), 'no placeholder here');
 });

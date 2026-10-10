@@ -32,7 +32,7 @@ export async function streamChatCompletion({
   model,
   messages,
   tools,
-  reasoning = 'auto', // auto | high | low | off (real behavior: chat_template_kwargs + reasoning_effort)
+  reasoning = 'auto', // auto | high | medium | low | off (real behavior: chat_template_kwargs + reasoning_effort)
   signal,
   onText,
   onReasoning,
@@ -61,6 +61,9 @@ export async function streamChatCompletion({
   } else if (reasoning === 'low') {
     body.chat_template_kwargs = { enable_thinking: true, thinking: true };
     body.reasoning_effort = 'low';
+  } else if (reasoning === 'medium') {
+    body.chat_template_kwargs = { enable_thinking: true, thinking: true };
+    body.reasoning_effort = 'medium';
   } else if (reasoning === 'high') {
     // thinking on, effort left to the template default: reasoning templates
     // define their own effort vocabularies (e.g. xhigh/medium/low) and reject

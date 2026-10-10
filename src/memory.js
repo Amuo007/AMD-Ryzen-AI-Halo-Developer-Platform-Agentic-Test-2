@@ -1,8 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { resolvePrompt, globalAppend } from './prompt.js';
+import { loadConfig } from './config.js';
 
 export const AGENTS_MD_CAP = 32_000; // chars of AGENTS.md injected
+
+/** Fill the {{model}} placeholder in the Identity section (always resolves). */
+export function fillIdentity(text, model = null) {
+  return String(text).replaceAll('{{model}}', model || loadConfig().model);
+}
 
 /** Load AGENTS.md from the workspace root, if present. */
 export async function loadAgentsMd(workspace) {
@@ -25,9 +31,9 @@ export async function loadAgentsMd(workspace) {
  * global append, AGENTS.md project instructions, and an available-skills
  * section are added.
  */
-export async function buildSystemPrompt({ workspace, agentsMd, skillsSection = null }) {
+export async function buildSystemPrompt({ workspace, agentsMd, skillsSection = null, model = null }) {
   const base = await resolvePrompt({ mode: 'code', workspace });
-  const parts = [base.text, `Your workspace is the directory ${workspace}. All file paths are relative to it. Never touch files outside it.`];
+  const parts = [fillIdentity(base.text, model), `Your workspace is the directory ${workspace}. All file paths are relative to it. Never touch files outside it.`];
   const append = await globalAppend();
   if (append) parts.push('', '## Global instructions (append.md)', append);
   if (skillsSection) parts.push('', skillsSection);
@@ -39,9 +45,10 @@ export async function buildSystemPrompt({ workspace, agentsMd, skillsSection = n
  * System prompt for Chat mode: a pure conversation with the model — no
  * workspace, no tools, no file access.
  */
-export async function buildChatSystemPrompt() {
+export async function buildChatSystemPrompt({ model = null } = {}) {
   const base = await resolvePrompt({ mode: 'chat' });
+  const text = fillIdentity(base.text, model);
   const append = await globalAppend();
-  if (append) return `${base.text}\n\n## Global instructions (append.md)\n${append}`;
-  return base.text;
+  if (append) return `${text}\n\n## Global instructions (append.md)\n${append}`;
+  return text;
 }

@@ -160,7 +160,7 @@ export function createRequestHandler() {
           workspace = ws.resolved;
         }
         const mode = ['ask', 'auto-edit', 'full'].includes(body.mode) ? body.mode : 'ask';
-        const reasoning = ['auto', 'high', 'low', 'off'].includes(body.reasoning) ? body.reasoning : null;
+        const reasoning = ['auto', 'high', 'medium', 'low', 'off'].includes(body.reasoning) ? body.reasoning : null;
         const sessionId = body.sessionId ? String(body.sessionId) : null;
         if (sessionId && getTurn(sessionId) && !getTurn(sessionId).finished) {
           return sendJson(res, 409, { error: 'a turn is already running for this session' });
@@ -290,11 +290,11 @@ export function createRequestHandler() {
         let defs = [];
         try {
           if (isChat) {
-            systemPrompt = await buildChatSystemPrompt();
+            systemPrompt = await buildChatSystemPrompt({ model: cfg.model });
           } else {
             const agentsMd = conv.workspace ? await loadAgentsMd(conv.workspace) : null;
             skillsSection = skillsSectionText(await discoverSkills({ workspace: conv.workspace }));
-            systemPrompt = await buildSystemPrompt({ workspace: conv.workspace, agentsMd, skillsSection });
+            systemPrompt = await buildSystemPrompt({ workspace: conv.workspace, agentsMd, skillsSection, model: cfg.model });
             defs = await activeToolList(conv.workspace);
           }
         } catch {

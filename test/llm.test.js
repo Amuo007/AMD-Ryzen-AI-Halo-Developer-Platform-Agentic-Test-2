@@ -217,6 +217,9 @@ test('reasoning control maps to real request parameters', async () => {
     const low = await call('low');
     assert.deepEqual(low.chat_template_kwargs, { enable_thinking: true, thinking: true });
     assert.equal(low.reasoning_effort, 'low');
+    const medium = await call('medium');
+    assert.deepEqual(medium.chat_template_kwargs, { enable_thinking: true, thinking: true }, 'medium turns thinking on');
+    assert.equal(medium.reasoning_effort, 'medium');
     const high = await call('high');
     assert.deepEqual(high.chat_template_kwargs, { enable_thinking: true, thinking: true });
     assert.ok(!('reasoning_effort' in high), 'high relies on the template default effort (templates define their own effort vocabularies)');

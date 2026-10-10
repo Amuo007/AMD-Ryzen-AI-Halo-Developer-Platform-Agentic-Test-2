@@ -114,7 +114,7 @@ local test pages; the live model server is never called during development.
       and on server exit (no orphan Chrome processes)
 - [x] Small CDP client over global WebSocket: id-matched request/response, event
       subscriptions, timeouts, clear "Chrome not found — set the path in Settings" error
-- [ ] Tests against a fake CDP WebSocket server (node:http upgrade, no deps)
+- [x] Tests against a fake CDP WebSocket server (node:http upgrade, no deps)
 
 ## 3. `browser` tool — Code mode only (`feat/browser-tool`)
 - [x] ONE tool, `action` param: open/back/reload; screenshot (viewport|full, JPEG);
@@ -174,13 +174,17 @@ local test pages; the live model server is never called during development.
       points; original task survives 3 handoffs; banner appears after the limit
 
 ## 8. Tests — mock only (`feat/browser-tests`)
-- [ ] CDP client vs fake CDP WebSocket server (test/helpers)
-- [ ] Real-Chrome integration test, auto-skip when Chrome missing: local page with broken
+- [x] CDP client vs fake CDP WebSocket server (test/helpers/fake-cdp.mjs — node:http
+      upgrade, no deps): id matching, events/sub+unsub, error replies, timeouts, close
+- [x] Real-Chrome integration test, auto-skip when Chrome missing: local page with broken
       button + console error → open, screenshot, snapshot, click, read console, resize
-- [ ] Local-only guard: external URLs refused; off-localhost navigation stopped
-- [ ] Screenshot pruning, inline screenshots, one card per turn updating in place,
+- [x] Local-only guard: external URLs refused (unit + engine); off-localhost navigation
+      stopped — fixed: new Chrome sends no url on Page.frameStartedLoading, the guard now
+      hooks frameScheduled/frameRequested/startedNavigating/navigatedWithinDocument too
+- [x] Screenshot pruning, inline screenshots, one card per turn updating in place,
       "Open" opens panel, card "Closed" after shutdown + on reload, no browser tool in
       Chat mode, process cleanup (no Chrome left after tests)
+- [x] 210 tests green
 
 ## 9. Finish
 - [ ] Scripted end-to-end smoke with the real bin + mock LLM (smoke-v4)

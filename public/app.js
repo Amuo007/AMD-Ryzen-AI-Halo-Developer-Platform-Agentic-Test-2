@@ -49,6 +49,13 @@ const els = {
   lightboxImg: $('#lightbox-img'),
   lightboxCaption: $('#lightbox-caption'),
   lightboxClose: $('#lightbox-close'),
+  browserPanel: $('#browser-panel'),
+  bpUrl: $('#bp-url'),
+  bpStatus: $('#bp-status'),
+  bpDot: $('#bp-dot'),
+  bpClose: $('#bp-close'),
+  bpImg: $('#bp-img'),
+  bpEmpty: $('#bp-empty'),
 };
 
 const SVG = {
@@ -76,6 +83,8 @@ const state = {
   turnEdits: [],
   lastUsage: null,
   stats: null,
+  browserCard: null, // live browser card for the current turn (updated in place)
+  panelOpen: false,
 };
 
 /* ---------------- helpers ---------------- */
@@ -230,6 +239,7 @@ function clearMessages() {
   state.turnEdits = [];
   state.pendingToolCards.clear();
   state.cardsByCallId.clear();
+  state.browserCard = null;
 }
 
 function appendUser(message, images = []) {
@@ -590,6 +600,12 @@ function renderEvent(ev) {
     case 'retry':
       setStatusError(`LLM hiccup (${ev.attempt}): ${ev.error} — retrying…`);
       break;
+    case 'browser_page':
+      showBrowserCard(ev);
+      break;
+    case 'browser_screenshot':
+      appendShotFigure(ev);
+      break;
     case 'turn_end':
       setMascotState('idle');
       endAssistant();
@@ -598,6 +614,7 @@ function renderEvent(ev) {
       if (ev.error) setStatusError(`LLM error: ${ev.error}`);
       else setStatusError('');
       if (ev.stopped) appendSystemNote('⏹ Stopped by user.');
+      if (state.browserCard && !state.panelOpen) stopBrowserCast(); // frames only while the agent works
       updateContextMeter();
       break;
     case 'stream_end':
@@ -766,6 +783,248 @@ function renderHandoff(summary) {
   const card = newHandoffCard(false);
   card.body.innerHTML = renderMarkdown(summary || '');
   return card;
+}
+
+/* ---------------- browser card + inline screenshots ---------------- */
+
+const BROWSER_CARD_NAME = 'forge:browser-card';
+const SCREENSHOT_NAME = 'forge:screenshot';
+
+const browserLive = { es: null, lastFrameAt: 0 };
+const browserBusSubs = new Set(); // extra consumers (side panel, §6) subscribe here
+
+function hostOf(url) {
+  if (!url) return '(no url)';
+  try {
+    const u = new URL(url);
+    return u.host || url;
+  } catch {
+    return url;
+  }
+}
+
+function onBrowserBus(ev) {
+  for (const fn of browserBusSubs) {
+    try {
+      fn(ev);
+    } catch {
+      /* one bad subscriber never breaks the browser feed */
+    }
+  }
+  const card = state.browserCard;
+  if (ev.type === 'frame') {
+    const now = Date.now();
+    if (now - browserLive.lastFrameAt < 500) return; // ~2 fps for every consumer
+    browserLive.lastFrameAt = now;
+    if (card) card.__setPreview(ev.data);
+    panelOnFrame(ev.data);
+  } else if (ev.type === 'navigation' || ev.type === 'viewport') {
+    if (card) card.__setMeta(ev);
+    panelOnMeta(ev);
+  } else if (ev.type === 'state') {
+    if (card) {
+      card.__setMeta(ev);
+      card.__setStatus(ev.status === 'Closed' ? 'Closed' : 'Live');
+    }
+    panelOnMeta(ev);
+    if (ev.status) panelOnStatus(ev.status === 'Closed' ? 'Closed' : 'Live');
+  } else if (ev.type === 'closed') {
+    if (card) card.__setStatus('Closed');
+    panelOnStatus('Closed');
+  }
+}
+
+function ensureBrowserLive() {
+  if (!state.sessionId) return;
+  api('POST', '/api/browser/screencast', { sessionId: state.sessionId }).catch(() => {});
+  if (browserLive.es) return;
+  const es = new EventSource(`/api/browser/events?sessionId=${encodeURIComponent(state.sessionId)}`);
+  browserLive.es = es;
+  es.onmessage = (msg) => {
+    try {
+      onBrowserBus(JSON.parse(msg.data));
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+function stopBrowserCast() {
+  if (!state.sessionId) return;
+  api('POST', '/api/browser/screencast', { sessionId: state.sessionId, start: false }).catch(() => {});
+}
+
+function closeBrowserLive() {
+  if (browserLive.es) {
+    try {
+      browserLive.es.close();
+    } catch {
+      /* ignore */
+    }
+    browserLive.es = null;
+  }
+  browserLive.lastFrameAt = 0;
+}
+
+function showBrowserCard(ev) {
+  ensureBrowserLive();
+  if (!state.browserCard) {
+    state.browserCard = buildBrowserCard({ url: ev.url || '', title: ev.title || '', viewport: ev.viewport || '', closed: false });
+    els.messages.appendChild(state.browserCard);
+  } else {
+    state.browserCard.__setMeta(ev); // one card per turn, updated in place
+  }
+  scrollTop();
+}
+
+function buildBrowserCard({ url, title, viewport, imageId, closed }) {
+  const card = el('div', { class: 'browser-card' + (closed ? ' closed' : '') });
+  const data = { url, title, viewport, closed: Boolean(closed) };
+  const preview = el('img', { class: 'browser-card-preview', alt: 'Page preview' });
+  if (imageId) preview.src = `/api/images/${encodeURIComponent(imageId)}`;
+  else preview.classList.add('empty');
+  preview.addEventListener('click', () => {
+    if (preview.src) openLightbox(preview.src, `${data.title || 'Page'} — ${data.url}`);
+  });
+  card.appendChild(preview);
+
+  const titleEl = el('div', { class: 'browser-card-title', text: title || '(untitled page)' });
+  const subEl = el('div', { class: 'browser-card-sub' });
+  const openBtn = el('button', { class: 'browser-card-open', text: 'Open', title: 'Open the browser side panel' });
+  openBtn.addEventListener('click', () => openBrowserPanel());
+  const menuBtn = el('button', { class: 'browser-card-menu-btn', text: '⋮', title: 'More' });
+  const menu = el('div', { class: 'browser-card-menu hidden' });
+  const copyItem = el('button', { class: 'browser-card-item', text: 'Copy URL' });
+  copyItem.addEventListener('click', () => {
+    try {
+      if (navigator.clipboard) navigator.clipboard.writeText(data.url);
+    } catch {
+      /* clipboard unavailable */
+    }
+    menu.classList.add('hidden');
+  });
+  const extItem = el('a', { class: 'browser-card-item', text: 'Open in my browser', target: '_blank', rel: 'noopener noreferrer', href: url || '#' });
+  menu.appendChild(copyItem);
+  menu.appendChild(extItem);
+  menuBtn.addEventListener('click', () => menu.classList.toggle('hidden'));
+  const menuWrap = el('div', { class: 'browser-card-menuwrap' }, [menuBtn, menu]);
+  const actions = el('div', { class: 'browser-card-actions' }, [openBtn, menuWrap]);
+  card.appendChild(el('div', { class: 'browser-card-meta' }, [titleEl, subEl, actions]));
+
+  function render() {
+    subEl.textContent = `${hostOf(data.url)} · ${data.closed ? 'Closed' : 'Live'}`;
+    extItem.setAttribute('href', data.url || '#');
+    card.classList.remove('closed');
+    card.classList.add('live');
+    if (data.closed) card.classList.add('closed');
+  }
+  render();
+  card.__setPreview = (src) => {
+    preview.src = src;
+    preview.classList.remove('empty');
+  };
+  card.__setMeta = (patch) => {
+    if (patch.url !== undefined && patch.url !== null) data.url = patch.url;
+    if (patch.title !== undefined && patch.title !== null && patch.title !== '') data.title = patch.title;
+    if (patch.viewport !== undefined && patch.viewport !== null) data.viewport = patch.viewport;
+    titleEl.textContent = data.title || '(untitled page)';
+    render();
+  };
+  card.__setStatus = (s) => {
+    data.closed = s === 'Closed';
+    render();
+  };
+  return card;
+}
+
+function renderStoredBrowserCard(m) {
+  let d = null;
+  try {
+    d = JSON.parse(m.content) || null;
+  } catch {
+    return;
+  }
+  if (!d) return;
+  const card = buildBrowserCard({ url: d.url || '', title: d.title || '', viewport: d.viewport || '', imageId: d.imageId || null, closed: true });
+  els.messages.appendChild(card);
+}
+
+function appendShotFigure({ imageId, url = '', viewport = '', full = false, title = '' }) {
+  if (!imageId) return null;
+  const src = `/api/images/${encodeURIComponent(imageId)}`;
+  const caption = `${url}${viewport ? ` · ${viewport}` : ''}${full ? ' · full page' : ''}`;
+  const fig = el('figure', { class: 'shot-figure' });
+  const img = el('img', { class: 'shot-img', src, alt: 'Screenshot' });
+  img.addEventListener('click', () => openLightbox(src, caption));
+  fig.appendChild(img);
+  fig.appendChild(el('figcaption', { class: 'shot-caption', text: caption }));
+  els.messages.appendChild(fig);
+  scrollTop();
+  return fig;
+}
+
+/** Parse a persisted screenshot message back into { imageId, url, viewport }. */
+function shotFromMessage(m) {
+  const first = typeof m.content === 'string' ? m.content.split('\n')[0] : '';
+  const mm = /^\[screenshot\]\s*(.*)$/.exec(first);
+  const line = mm ? mm[1] : '';
+  const parts = line.split(' · ');
+  return { imageId: (m.images || [])[0], url: parts[0] || '', viewport: parts[1] || '' };
+}
+
+/* ---------------- browser side panel ---------------- */
+
+function openBrowserPanel() {
+  if (!els.browserPanel) return;
+  els.browserPanel.classList.remove('hidden');
+  state.panelOpen = true;
+  if (state.sessionId) {
+    ensureBrowserLive();
+  }
+  refreshPanelState();
+}
+
+function closeBrowserPanel() {
+  if (!els.browserPanel) return;
+  els.browserPanel.classList.add('hidden');
+  state.panelOpen = false;
+  if (!state.running) stopBrowserCast();
+}
+
+async function refreshPanelState() {
+  if (!state.sessionId) return;
+  try {
+    const st = await api('GET', `/api/browser/state?sessionId=${encodeURIComponent(state.sessionId)}`);
+    panelOnMeta(st);
+    if (st.status) panelOnStatus(st.status === 'Closed' ? 'Closed' : 'Live');
+  } catch {
+    /* keep whatever is shown */
+  }
+}
+
+function panelOnFrame(dataUrl) {
+  if (!state.panelOpen) return;
+  els.bpImg.src = dataUrl;
+  els.bpImg.classList.remove('hidden');
+  els.bpEmpty.classList.add('hidden');
+}
+
+function panelOnMeta(ev) {
+  if (!state.panelOpen) return;
+  if (ev.url !== undefined) els.bpUrl.value = ev.url || '';
+}
+
+function panelOnStatus(status) {
+  if (!state.panelOpen) return;
+  els.bpStatus.textContent = status;
+  els.bpDot.classList.remove('live', 'closed');
+  els.bpDot.classList.add(status === 'Closed' ? 'closed' : 'live');
+  if (status !== 'Closed') {
+    els.bpEmpty.classList.add('hidden');
+  } else {
+    els.bpEmpty.classList.remove('hidden');
+    els.bpImg.classList.add('hidden');
+  }
 }
 
 /* ---------------- welcome screens ---------------- */
@@ -962,6 +1221,7 @@ async function removeSession(id) {
 async function openSession(id) {
   const { session, active } = await api('GET', `/api/session?sessionId=${encodeURIComponent(id)}`);
   disconnectEvents();
+  closeBrowserLive();
   state.sessionId = id;
   setAgentMode(session.mode, false);
   if (session.reasoning !== undefined) els.reasoning.value = session.reasoning || 'auto';
@@ -970,10 +1230,16 @@ async function openSession(id) {
   clearMessages();
   renderTodos(session.todos);
   for (const m of session.messages) {
-    if (m.role === 'user') appendUser(m.content || '', m.images || []);
-    else if (m.role === 'assistant') {
+    if (m.role === 'user') {
+      if (m.name === SCREENSHOT_NAME && (m.images || []).length) appendShotFigure(shotFromMessage(m));
+      else appendUser(m.content || '', m.images || []);
+    } else if (m.role === 'assistant') {
       if (m.name === 'forge:handoff') {
         renderHandoff(m.content);
+        continue;
+      }
+      if (m.name === BROWSER_CARD_NAME) {
+        renderStoredBrowserCard(m);
         continue;
       }
       if (m.content) {
@@ -1007,6 +1273,7 @@ async function openSession(id) {
   } else {
     els.topCrumbs.classList.add('hidden');
   }
+  if (state.panelOpen) refreshPanelState();
   loadSessions();
   updateContextMeter();
   scrollTop();
@@ -1105,6 +1372,8 @@ async function stop() {
 
 function newChat() {
   disconnectEvents();
+  closeBrowserLive();
+  closeBrowserPanel();
   state.sessionId = null;
   setRunning(false);
   setMascotState('idle');
@@ -1565,6 +1834,7 @@ async function init() {
   });
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
+  els.bpClose.addEventListener('click', () => closeBrowserPanel());
   wireImageEvents();
   $('#ctx-meter')?.addEventListener('click', () => toggleCtxPopup());
   document.addEventListener('click', (e) => {
@@ -1609,4 +1879,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting };
+globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard };

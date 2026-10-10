@@ -99,6 +99,7 @@ export async function bootApp({ storage = {}, fetchStub } = {}) {
   };
   const sandbox = {
     document,
+    URL,
     navigator: { clipboard: null },
     localStorage: {
       getItem: (k) => (Object.prototype.hasOwnProperty.call(storage, k) ? storage[k] : null),

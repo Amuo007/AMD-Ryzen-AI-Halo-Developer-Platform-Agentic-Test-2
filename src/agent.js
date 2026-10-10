@@ -7,7 +7,8 @@ import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory
 import { discoverSkills, skillsSectionText } from './skills.js';
 import { appendMessage, getConversation, loadMessages } from './db.js';
 import { ensureConversation } from './conversations.js';
-import { materializeForModel, SCREENSHOT_NAME } from './images.js';
+import { materializeForModel, SCREENSHOT_NAME, BROWSER_CARD_NAME } from './images.js';
+import { getPage, captureCardFrame } from './browser/index.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
@@ -36,7 +37,7 @@ export function historyFromRows(rows) {
       break;
     }
   }
-  return rows.slice(start).map(({ __meta, name, ...m }) => m);
+  return rows.slice(start).map(({ __meta, ...m }) => m);
 }
 
 export class Turn {
@@ -223,12 +224,12 @@ export async function runTurn(turn, userMessage, images = []) {
       if (!asstMsg.tool_calls?.length) break;
       if (isChat) break; // Chat mode never executes tools
 
-      const deferredScreenshots = [];
+      const deferredShots = [];
       for (let i = 0; i < asstMsg.tool_calls.length; i++) {
         const call = asstMsg.tool_calls[i];
         const callId = call.id || `call-${step}-${i}`;
         const toolName = call.function.name;
-        let pendingScreenshot = null;
+        let pendingShot = null;
         turn.emit({ type: 'tool_start', callId, name: toolName, argsText: call.function.arguments ?? '' });
 
         let status = 'ok';
@@ -262,7 +263,7 @@ export async function runTurn(turn, userMessage, images = []) {
             if (!toolRes.ok) status = 'error';
             if (toolRes.timedOut) status = 'timeout';
             if (toolRes.aborted) status = 'stopped';
-            pendingScreenshot = toolRes.screenshot ?? null;
+            pendingShot = toolRes.screenshot ? { id: toolRes.screenshot, caption: toolRes.shot ? `[screenshot] ${toolRes.shot.url} · ${toolRes.shot.viewport}` : '[screenshot]' } : null;
           }
         }
 
@@ -270,21 +271,28 @@ export async function runTurn(turn, userMessage, images = []) {
         const toolMsg = { role: 'tool', tool_call_id: callId, name: toolName, content: resultText };
         messages.push(toolMsg);
         await appendMessage(turn.sessionId, toolMsg);
+        if (toolName === 'browser') {
+          // keep the chat browser card (section 4) pointed at the live page after every action
+          const bp = getPage(turn.sessionId);
+          if (bp && !bp.closed) turn.emit({ type: 'browser_page', url: bp.url, title: bp.title, viewport: `${bp.viewport.width}x${bp.viewport.height}` });
+        }
         // OpenAI-compatible servers reject images inside tool messages, so a browser
         // screenshot is attached as a follow-up user message — but only after every
         // tool result of this assistant turn, to keep the tool-call order valid.
-        if (pendingScreenshot) deferredScreenshots.push(pendingScreenshot);
+        if (pendingShot) deferredShots.push(pendingShot);
       }
-      for (const shotId of deferredScreenshots) {
-        const shotMsg = { role: 'user', content: '[screenshot]', name: SCREENSHOT_NAME, images: [shotId] };
+      for (const shot of deferredShots) {
+        const shotMsg = { role: 'user', content: shot.caption, name: SCREENSHOT_NAME, images: [shot.id] };
         messages.push(shotMsg);
         await appendMessage(turn.sessionId, shotMsg);
       }
     }
+    await persistBrowserCard(turn);
     turn.emit({ type: 'turn_end', stopped: turn.stopped, usage: turn.usage });
     turn.finish();
   } catch (err) {
     if (err.name === 'AbortError') {
+      await persistBrowserCard(turn);
       turn.emit({ type: 'turn_end', stopped: true, usage: turn.usage });
       turn.finish();
     } else {
@@ -295,13 +303,35 @@ export async function runTurn(turn, userMessage, images = []) {
 }
 
 /**
+ * Persist the browser card (section 4) at the end of a turn that used the
+ * browser: url + title + last preview frame, rendered on session reload.
+ * UI-only — materializeForModel drops these messages. Never breaks the turn.
+ */
+async function persistBrowserCard(turn) {
+  try {
+    const p = getPage(turn.sessionId);
+    if (!p || p.closed) return;
+    const imageId = await captureCardFrame(turn.sessionId);
+    const cardMsg = {
+      role: 'assistant',
+      name: BROWSER_CARD_NAME,
+      content: JSON.stringify({ url: p.url, title: p.title, viewport: `${p.viewport.width}x${p.viewport.height}`, imageId }),
+    };
+    appendMessage(turn.sessionId, cardMsg);
+  } catch {
+    /* the card is cosmetic; never fail a turn because of it */
+  }
+}
+
+/**
  * Automatic context handoff (Code mode): ask the model to summarize the session,
  * persist it as a named handoff message and reset the working context to it.
  * Older messages stay in the session (still readable in the UI).
  */
 async function performHandoff(turn, config, { systemPrompt, messages, signal }) {
   const directive = { role: 'user', content: HANDOFF_DIRECTIVE };
-  const ctx = trimContext([{ role: 'system', content: systemPrompt }, ...messages, directive], config.contextLimit);
+  // materialize first: screenshot images and UI-only browser cards never belong in the summary request
+  const ctx = trimContext([{ role: 'system', content: systemPrompt }, ...materializeForModel(messages, { vision: false }), directive], config.contextLimit);
   let usage = null;
   const result = await streamChatCompletion({
     baseURL: config.baseURL,

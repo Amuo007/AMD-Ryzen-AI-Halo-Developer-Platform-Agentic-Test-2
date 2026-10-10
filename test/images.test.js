@@ -82,6 +82,21 @@ test('materializeForModel: only the latest 2 screenshots stay, user images never
   assert.ok(Array.isArray(out[3].content), 'shot3 kept');
 });
 
+test('materializeForModel: browser-card messages never reach the model', async () => {
+  const { BROWSER_CARD_NAME } = await import('../src/images.js');
+  const msgs = [
+    { role: 'user', content: 'hi' },
+    { role: 'user', name: SCREENSHOT_NAME, content: 'shot', images: [saveImage({ dataUrl: PNG, source: 'screenshot' }).id] },
+    { role: 'assistant', name: BROWSER_CARD_NAME, content: JSON.stringify({ url: 'http://localhost:3000', title: 'x', viewport: '1280x900', imageId: 'img-1' }) },
+    { role: 'assistant', content: 'done' },
+  ];
+  const out = materializeForModel(msgs, { vision: true });
+  assert.equal(out.length, 3);
+  assert.ok(!out.some((m) => m.name !== undefined), 'no internal names in model messages');
+  assert.deepEqual(out.map((m) => m.role), ['user', 'user', 'assistant']);
+  assert.ok(!out.some((m) => m.name === BROWSER_CARD_NAME));
+});
+
 /* ---------------- server routes ---------------- */
 
 let forge;

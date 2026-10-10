@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { CDPClient } from './cdp.js';
 import { detectBrowser } from './detect.js';
 import { isLocalUrl } from './local.js';
+import { saveImage } from '../images.js';
 
 const IDLE_MS = 10 * 60 * 1000; // close the browser 10 minutes after last use
 const LAUNCH_TIMEOUT_MS = 25000;
@@ -187,6 +188,7 @@ class PageSession {
     this.consoleRead = 0;
     this.refCounter = 0;
     this.lastScreenshot = null; // { imageId, url, width, height }
+    this.lastFrame = null; // last screencast frame (data URL), if the cast ever ran
     this.closed = false;
     this.navigationsBlocked = [];
     this._wire();
@@ -551,7 +553,31 @@ export function getState(sessionId) {
   };
 }
 
-export { ensurePage };
+/**
+ * Persist the page preview (last screencast frame, or a fresh screenshot when
+ * the cast never ran) as a stored image. Returns the image id or null.
+ */
+async function captureCardFrame(conversationId) {
+  const p = pages.get(String(conversationId));
+  if (!p || p.closed) return null;
+  let frame = p.lastFrame;
+  if (!frame) {
+    try {
+      const s = await p.screenshot({ full: false });
+      frame = `data:image/jpeg;base64,${s.data}`;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const saved = saveImage({ dataUrl: frame, conversationId: String(conversationId), source: 'browser-card', width: p.viewport.width, height: p.viewport.height });
+    return saved.id;
+  } catch {
+    return null;
+  }
+}
+
+export { ensurePage, captureCardFrame };
 
 /** Close a single conversation's browser context. */
 export async function closeConversation(sessionId) {

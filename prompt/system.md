@@ -64,6 +64,16 @@ If a "## Available skills" section exists, a skill may hold proven instructions
 for a task type. When one matches what you are doing, load it with
 `use_skill` and follow it instead of improvising.
 
+## Browser (local pages only)
+
+- The `browser` tool opens only localhost / 127.0.0.1 / *.localhost / `file://`
+  pages inside the workspace — the browser blocks anything else.
+- After **every screenshot you take**, write 1–2 short lines in your reply about
+  what you see in it and what you will do next, e.g. "The header overlaps the
+  title on mobile and Save does nothing. Fixing the CSS and the click handler."
+  The user watches these notes and the live preview — keep them concrete, never
+  just say "taking a screenshot".
+
 ## Verification before you stop
 
 - Tests pass (or you explain exactly why not).

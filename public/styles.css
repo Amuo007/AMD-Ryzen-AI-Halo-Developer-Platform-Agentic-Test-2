@@ -456,3 +456,41 @@ dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 0
 .lightbox::backdrop { background: rgba(0,0,0,0.85); }
 .lightbox-close { position: absolute; top: 10px; right: 10px; z-index: 2; }
 .lightbox-caption { text-align: center; color: #fff; font-size: 13px; margin-top: 8px; font-family: var(--mono); }
+
+/* ================= browser card + inline screenshots ================= */
+.browser-card { max-width: 520px; margin: 12px 0; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); box-shadow: var(--shadow); overflow: hidden; }
+.browser-card-preview { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; background: var(--bg-alt); cursor: zoom-in; border-bottom: 1px solid var(--border); }
+.browser-card-preview.empty { cursor: default; }
+.browser-card-preview:not(.empty)[src=""] { visibility: hidden; }
+.browser-card-meta { padding: 10px 13px 11px; display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; align-items: center; }
+.browser-card-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.browser-card-sub { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+.browser-card.closed .browser-card-sub { color: var(--text-faint); }
+.browser-card-actions { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 7px; align-items: center; }
+.browser-card-open { border: 1px solid var(--border-strong); background: var(--bg-alt); color: var(--text); border-radius: 9px; padding: 5px 16px; font-size: 13px; }
+.browser-card-open:hover { border-color: var(--accent); color: var(--accent); }
+.browser-card-menuwrap { position: relative; }
+.browser-card-menu-btn { border: 1px solid transparent; background: none; color: var(--text-dim); border-radius: 8px; padding: 4px 10px; font-size: 15px; line-height: 1; }
+.browser-card-menu-btn:hover { background: var(--bg-hover); color: var(--text); }
+.browser-card-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 180px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card); box-shadow: var(--shadow); padding: 4px; display: flex; flex-direction: column; }
+.browser-card-item { display: block; text-align: left; border: none; background: none; color: var(--text); padding: 7px 10px; border-radius: 7px; font-size: 13px; text-decoration: none; cursor: pointer; }
+.browser-card-item:hover { background: var(--bg-hover); }
+
+.shot-figure { max-width: 520px; margin: 12px 0; }
+.shot-img { display: block; width: 100%; border: 1px solid var(--border-strong); border-radius: 12px; cursor: zoom-in; background: var(--bg-alt); }
+.shot-img:hover { border-color: var(--accent); }
+.shot-caption { font-size: 12px; color: var(--text-dim); font-family: var(--mono); margin-top: 5px; word-break: break-all; }
+
+/* ================= browser side panel ================= */
+.browser-panel { width: 460px; min-width: 320px; max-width: 70vw; border-left: 1px solid var(--border); background: var(--bg-alt); display: flex; flex-direction: column; }
+.bp-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+.bp-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--text-faint); }
+.bp-dot.live { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.bp-dot.closed { background: var(--text-faint); }
+.bp-url { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 8px; padding: 5px 9px; outline: none; }
+.bp-status { font-size: 12px; color: var(--text-dim); flex: none; }
+.bp-close { border: none; background: none; color: var(--text-dim); font-size: 15px; padding: 3px 7px; border-radius: 7px; }
+.bp-close:hover { background: var(--bg-hover); color: var(--text); }
+.bp-view { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: flex-start; justify-content: center; background: var(--bg); }
+.bp-img { width: 100%; display: block; }
+.bp-empty { color: var(--text-faint); font-size: 13px; padding: 40px 24px; text-align: center; }

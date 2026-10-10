@@ -495,6 +495,46 @@ test('GET/POST /api/tools: list + toggle affects the model defs', async () => { 
   await req('POST', '/api/tools/enabled', { name: 'edit_file', enabled: true });
 });
 
+test('browser tool: per-tool policy honored; absent in Chat mode', async () => {
+  let r = await req('GET', '/api/tools');
+  assert.ok(r.data.tools.some((t) => t.name === 'browser' && t.enabled === true), 'browser listed + enabled by default');
+
+  // disabled → not offered to the model; a hallucinated call fails without launching Chrome
+  await req('POST', '/api/tools/enabled', { name: 'browser', enabled: false });
+  const sessionId = 'apitest-browser-policy';
+  mockHandler = (body) => {
+    const last = body.messages[body.messages.length - 1];
+    if (last?.role === 'tool') {
+      assert.match(last.content, /disabled by the user/);
+      return { chunks: [...textChunks('browser is disabled'), deltaChunk({}, 'stop')] };
+    }
+    const tools = (body.tools || []).map((t) => t.function.name);
+    assert.ok(!tools.includes('browser'), 'disabled browser not offered to the model');
+    return { chunks: [...toolCallChunks('browser', JSON.stringify({ action: 'open', url: 'http://127.0.0.1:9/' }), { id: 'call_br' }), deltaChunk({}, 'tool_calls')] };
+  };
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-brpolicy-'));
+  const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
+  await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'open a page', mode: 'full' });
+  const events = await sseCollect({ sessionId, until: untilEnd });
+  const brEnd = events.filter((e) => e.type === 'tool_end' && e.name === 'browser').pop();
+  assert.ok(brEnd, 'browser tool_end emitted');
+  assert.equal(brEnd.status, 'error');
+  assert.match(brEnd.result, /disabled by the user/);
+  const state = await req('GET', `/api/browser/state?sessionId=${sessionId}`);
+  assert.equal(state.data.running, false, 'no Chrome launched for a disabled browser tool');
+  await req('POST', '/api/tools/enabled', { name: 'browser', enabled: true });
+
+  // Chat mode: no tools array at all, and a hallucinated browser call is never executed
+  const chatSession = 'apitest-browser-chat';
+  mockHandler = () => ({ chunks: [...toolCallChunks('browser', JSON.stringify({ action: 'open', url: 'http://127.0.0.1:9/' }), { id: 'call_br2' }), deltaChunk({}, 'tool_calls')] });
+  const untilEnd2 = (ev) => ev.type === 'turn_end' && ((untilEnd2.__done = true), true);
+  await req('POST', '/api/chat', { sessionId: chatSession, agentMode: 'chat', message: 'open a page' });
+  const chatEvents = await sseCollect({ sessionId: chatSession, until: untilEnd2 });
+  const chatReq = mock.requests[mock.requests.length - 1];
+  assert.ok(!('tools' in chatReq), 'chat requests send no tools array');
+  assert.ok(!chatEvents.some((e) => e.type === 'tool_start' && e.name === 'browser'), 'browser never runs in Chat mode');
+});
+
 test('reasoning: per-conversation control reaches the API request', async () => {
   const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-reason-'));
   mockHandler = (body) => {

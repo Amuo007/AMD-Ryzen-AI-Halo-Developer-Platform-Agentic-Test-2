@@ -2,6 +2,9 @@
 const $ = (sel) => document.querySelector(sel);
 
 const els = {
+  app: $('#app'),
+  menuBtn: $('#menu-btn'),
+  navScrim: $('#nav-scrim'),
   messages: $('#messages'),
   input: $('#input'),
   send: $('#send-btn'),
@@ -96,6 +99,7 @@ const state = {
   browserPanelWidth: 0, // remembered panel width (px), 0 = default
   lastHandoffSummary: null, // latest handoff summary of the open session (session-budget prefill)
   budgetDismissed: false, // session-budget banner closed by the user
+  navOpen: false, // mobile sidebar drawer open
 };
 
 /* ---------------- helpers ---------------- */
@@ -144,7 +148,19 @@ function applyTheme(t) {
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('forge-theme', t);
 }
-applyTheme(localStorage.getItem('forge-theme') || 'light');
+function systemPrefersDark() {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;
+}
+applyTheme(localStorage.getItem('forge-theme') || (systemPrefersDark() ? 'dark' : 'light'));
+
+/* ---------------- mobile nav drawer ---------------- */
+
+function setNavOpen(open) {
+  state.navOpen = open;
+  els.app.classList.toggle('nav-open', open);
+  els.menuBtn.setAttribute('aria-expanded', String(open));
+  els.menuBtn.title = open ? 'Close menu' : 'Open menu';
+}
 
 /* ---------------- mascot ---------------- */
 
@@ -1106,6 +1122,7 @@ function panelShowErrors(n) {
 function openBrowserPanel() {
   if (!els.browserPanel) return;
   els.browserPanel.classList.remove('hidden');
+  els.browserBtn.classList.add('active');
   state.panelOpen = true;
   setPanelWidth(state.browserPanelWidth || Number(localStorage.getItem('forge-bp-width')) || 460);
   if (state.sessionId) ensureBrowserLive();
@@ -1115,6 +1132,7 @@ function openBrowserPanel() {
 function closeBrowserPanel() {
   if (!els.browserPanel) return;
   els.browserPanel.classList.add('hidden');
+  els.browserBtn.classList.remove('active');
   state.panelOpen = false;
   if (!state.running) stopBrowserCast();
 }
@@ -1431,6 +1449,7 @@ async function openSession(id) {
   loadSessions();
   updateContextMeter();
   scrollTop();
+  setNavOpen(false);
 }
 
 /* ---------------- SSE ---------------- */
@@ -1529,6 +1548,7 @@ function newChat() {
   disconnectEvents();
   closeBrowserLive();
   closeBrowserPanel();
+  setNavOpen(false);
   state.sessionId = null;
   setRunning(false);
   setMascotState('idle');
@@ -1774,6 +1794,7 @@ async function setStatusModel() {
   const cfg = await api('GET', '/api/config');
   state.modelName = cfg.model;
   els.topModel.textContent = cfg.model;
+  els.topModel.title = cfg.model || '';
   applyVisionSetting(cfg);
 }
 async function checkLlm() {
@@ -1944,6 +1965,8 @@ async function init() {
   els.workspace.value = localStorage.getItem('forge-workspace') || '';
 
   els.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+  els.menuBtn.addEventListener('click', () => setNavOpen(!state.navOpen));
+  els.navScrim.addEventListener('click', () => setNavOpen(false));
   els.send.addEventListener('click', send);
   els.stop.addEventListener('click', stop);
   els.newChat.addEventListener('click', newChat);
@@ -1979,7 +2002,9 @@ async function init() {
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.running) stop();
+    if (e.key !== 'Escape') return;
+    if (state.navOpen) setNavOpen(false);
+    else if (state.running) stop();
   });
   els.input.addEventListener('input', autosize);
   els.input.addEventListener('input', () => {
@@ -2050,4 +2075,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard, setPanelViewport, setPanelWidth, updateBrowserBtn, refreshBrowserPolicy, updateContextMeter, freshChatWithSummary, renderBudgetBanner };
+globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard, setPanelViewport, setPanelWidth, updateBrowserBtn, refreshBrowserPolicy, updateContextMeter, freshChatWithSummary, renderBudgetBanner, setNavOpen, applyTheme, systemPrefersDark };

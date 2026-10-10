@@ -703,6 +703,67 @@ test('session budget banner: markup + CSS exist', () => {
   assert.match(css, /\.budget-btn \{/);
 });
 
+/* ---------------- ui polish: responsive shell + theme defaults ---------------- */
+
+test('responsive shell: hamburger + scrim markup; off-canvas sidebar, dialogs, form rows and mobile CSS blocks', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="menu-btn"/);
+  assert.match(html, /id="nav-scrim"/);
+  assert.match(html, /name="theme-color"/);
+  assert.match(html, /aria-expanded/);
+  const css = pub('styles.css');
+  assert.match(css, /@media \(max-width: 860px\)/);
+  assert.match(css, /\.menu-btn \{ display: none/); // hidden on desktop
+  assert.match(css, /\.menu-btn \{ display: grid; \}/); // shown on mobile
+  assert.match(css, /#app\.nav-open #sidebar \{ transform: none/); // drawer slides in
+  assert.match(css, /\.nav-scrim \{ display: none/);
+  assert.match(css, /#app\.nav-open \.nav-scrim \{ display: block/);
+  assert.match(css, /\.stats-grid \{ grid-template-columns: repeat\(2, 1fr\); \}/);
+  assert.match(css, /\.heatmap \{ flex-wrap: nowrap; overflow-x: auto/);
+  assert.match(css, /\.browser-panel \{[\s\S]{0,200}position: fixed/); // overlays on mobile
+  assert.match(css, /dialog:not\(\.lightbox\) \{ max-height/); // dialogs scroll instead of overflowing
+  assert.match(css, /dialog form \.row > label \{ flex: 1 1 220px/); // settings rows wrap
+  // native controls + scrollbars follow the theme; keyboard focus is visible
+  assert.match(css, /\[data-theme='light'\] \{\n  color-scheme: light;/);
+  assert.match(css, /\[data-theme='dark'\] \{\n  color-scheme: dark;/);
+  assert.match(css, /:focus-visible \{ outline: 2px solid var\(--accent\)/);
+  assert.match(css, /\.top-model \{[^}]*text-overflow: ellipsis/);
+  const app = pub('app.js');
+  assert.match(app, /function setNavOpen/);
+  assert.match(app, /els\.menuBtn\.addEventListener\('click'/);
+  assert.match(app, /els\.navScrim\.addEventListener\('click'/);
+  assert.match(app, /if \(state\.navOpen\) setNavOpen\(false\);/, 'Escape closes the drawer first');
+  // first visit follows the OS dark-mode preference
+  assert.match(app, /function systemPrefersDark/);
+  assert.match(app, /applyTheme\(localStorage\.getItem\('forge-theme'\) \|\| \(systemPrefersDark\(\)/);
+});
+
+test('runtime: hamburger opens the drawer, scrim tap and new chat close it; panel button tracks open state', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  try {
+    assert.equal(app.api.state.navOpen, false, 'closed by default');
+    app.fire(app.els.get('#menu-btn'), 'click');
+    assert.equal(app.api.state.navOpen, true, 'hamburger opens');
+    assert.equal(app.els.get('#menu-btn').getAttribute('aria-expanded'), 'true');
+    app.fire(app.els.get('#nav-scrim'), 'click');
+    assert.equal(app.api.state.navOpen, false, 'scrim tap closes');
+    app.fire(app.els.get('#menu-btn'), 'click');
+    assert.equal(app.api.state.navOpen, true);
+    app.api.newChat();
+    assert.equal(app.api.state.navOpen, false, 'new chat closes');
+    // browser header button reflects the panel state
+    app.api.state.sessionId = 'rp1';
+    app.api.openBrowserPanel();
+    assert.equal(app.api.state.panelOpen, true);
+    app.api.closeBrowserPanel();
+    assert.equal(app.api.state.panelOpen, false);
+    assert.ok(!app.rejections.length, 'no unhandled rejections');
+  } finally {
+    app.done();
+  }
+});
+
 test('runtime: session-budget banner appears past the limit; button opens a fresh Code chat prefilled with the latest handoff summary; dismiss hides', async () => {
   const { bootApp } = await import('./helpers/domstub.mjs');
   let over = false;

@@ -27,7 +27,9 @@ The server binds to **127.0.0.1 only** — it never exposes anything on your LAN
 ## Usage
 
 1. Pick a **mode** in the sidebar: **Chat** (plain conversation) or **Code** (agent works
-   in a workspace). Light theme by default, dark one click away (◐).
+   in a workspace). Light theme by default, dark one click away (◐); a first visit follows
+   the OS dark-mode preference. On phone-width screens the sidebar becomes a drawer
+   (☰) and dialogs, the composer and the browser panel adapt to the small viewport.
 2. Pick a **workspace folder** (type a path or use the 📁 browser).
 3. Choose a **permission mode** and a **reasoning level** in the composer (see below).
 4. Type a task and hit **Enter**. Halo streams the model's answer live with **markdown
@@ -198,7 +200,7 @@ Settings → Tools.
 ## Tests
 
 ```bash
-npm test                        # 210 unit / API / UI-runtime / browser tests (mock OpenAI, fake CDP server;
+npm test                        # 212 unit / API / UI-runtime / browser tests (mock OpenAI, fake CDP server;
                                 # real-Chrome integration auto-skips when no Chrome is installed)
 node scripts/smoke-v3.mjs       # scripted end-to-end smoke: real bin, all v3 capabilities
 node scripts/smoke-v4.mjs       # scripted end-to-end smoke: real bin, all v4 capabilities

@@ -586,3 +586,88 @@ test('runtime: reopening a session shows the stored card (Closed) + screenshots 
     app.done();
   }
 });
+
+/* ---------------- browser side panel (section 6) ---------------- */
+
+test('side panel: header button, resize handle, viewport switch and error badge — markup + CSS', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="browser-btn"/);
+  assert.match(html, /id="bp-resize"/);
+  assert.match(html, /id="bp-errors"/);
+  assert.match(html, /id="bp-viewports"/);
+  for (const size of ['desktop', 'tablet', 'mobile']) assert.match(html, new RegExp(`data-size="${size}"`));
+  // hidden by default
+  assert.match(html, /<aside id="browser-panel" class="browser-panel hidden"/);
+  const app = pub('app.js');
+  assert.match(app, /wirePanelResize/);
+  assert.match(app, /wirePanelViewports/);
+  assert.match(app, /forge-bp-width/);
+  assert.match(app, /\/api\/browser\/viewport/);
+  assert.match(app, /refreshBrowserPolicy/);
+  const css = pub('styles.css');
+  assert.match(css, /\.bp-resize/);
+  assert.match(css, /\.bp-viewports/);
+  assert.match(css, /\.bp-errors/);
+  assert.match(css, /\.browser-btn/);
+});
+
+test('runtime: side panel opens with remembered width, drag resizes, viewport switch posts, error badge from state', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const posts = [];
+  const fetchStub = async (url, opts) => {
+    if (String(url).includes('/api/browser/state')) return { ok: true, status: 200, json: async () => ({ running: true, active: true, status: 'Live', url: 'http://localhost:3000/a', title: 'A', viewport: { width: 390, height: 844 }, consoleErrors: 3, blocked: [] }) };
+    if (String(url).includes('/api/browser/viewport')) {
+      posts.push(JSON.parse(opts.body));
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    }
+    return null;
+  };
+  const storage = {};
+  const app = await bootApp({ storage, fetchStub });
+  try {
+    app.api.state.sessionId = 'p1';
+    app.api.openBrowserPanel();
+    assert.equal(app.api.state.panelOpen, true);
+    await new Promise((r) => setTimeout(r, 120));
+    assert.equal(app.els.get('#browser-panel').style.width, '460px', 'default width applied');
+    assert.equal(app.els.get('#bp-status').textContent, 'Live');
+    assert.equal(app.els.get('#bp-url').value, 'http://localhost:3000/a', 'read-only URL bar fed');
+    assert.equal(app.els.get('#bp-errors-n').textContent, '3', 'console-error badge');
+    // drag resize (pointer events on the handle)
+    const handle = app.els.get('#bp-resize');
+    app.fire(handle, 'pointerdown', { clientX: 500 });
+    app.fire(handle, 'pointermove', { clientX: 460 }); // 40 px wider
+    app.fire(handle, 'pointerup', {});
+    assert.equal(app.api.state.browserPanelWidth, 500);
+    assert.equal(storage['forge-bp-width'], '500', 'width remembered');
+    // viewport size switch
+    await app.api.setPanelViewport('mobile');
+    assert.deepEqual(posts[posts.length - 1], { sessionId: 'p1', size: 'mobile' });
+    // close button
+    app.fire(app.els.get('#bp-close'), 'click');
+    assert.equal(app.api.state.panelOpen, false);
+    assert.ok(!app.rejections.length, 'no unhandled rejections');
+  } finally {
+    app.done();
+  }
+});
+
+test('runtime: browser tool policy — panel closes + button disabled when the browser tool is off', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const fetchStub = async (url) => {
+    if (String(url).includes('/api/tools')) return { ok: true, status: 200, json: async () => ({ tools: [{ name: 'read_file', enabled: true }, { name: 'browser', enabled: false }], mcp: { servers: [], tools: [] } }) };
+    return null;
+  };
+  const app = await bootApp({ fetchStub });
+  try {
+    await new Promise((r) => setTimeout(r, 150));
+    assert.equal(app.api.state.browserToolEnabled, false, 'policy read from /api/tools');
+    // opening while disabled immediately closes the panel
+    app.api.state.sessionId = 'p2';
+    app.api.openBrowserPanel();
+    await app.api.refreshBrowserPolicy();
+    assert.equal(app.api.state.panelOpen, false, 'panel not shown while the browser tool is disabled');
+  } finally {
+    app.done();
+  }
+});

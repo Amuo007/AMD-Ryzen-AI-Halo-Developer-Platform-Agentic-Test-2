@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 4: images + invisible local browser
 
 ## Current status
-- Branch: `feat/visual-loop` — Phase 4 §5 done; next: §6 browser side panel
-- Doing: visual check loop shipped (prompt + tests)
+- Branch: `feat/browser-panel` — Phase 4 §6 done; next: §7 better automatic handoff
+- Doing: browser side panel shipped (drag width, viewport switch, error badge, policy)
 - Half-done: nothing
-- Baseline: v3.0.0 — 174 tests green (now 199)
+- Baseline: v3.0.0 — 174 tests green (now 203)
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -148,11 +148,11 @@ local test pages; the live model server is never called during development.
 - [x] "open localhost:3000 and tell me what can be improved" review flow works
 
 ## 6. Browser side panel (`feat/browser-panel`)
-- [ ] Right-side panel, hidden by default; opens from card "Open" or header browser
+- [x] Right-side panel, hidden by default; opens from card "Open" or header browser
       button; close button; draggable width remembered
-- [ ] Read-only URL bar; live view via CDP `Page.startScreencast` throttled ~2 fps over
+- [x] Read-only URL bar; live view via CDP `Page.startScreencast` throttled ~2 fps over
       the existing SSE; status Live/Closed; viewport size switch; console-error badge
-- [ ] Browser tool honors per-tool enable/disable policy
+- [x] Browser tool honors per-tool enable/disable policy
 
 ## 7. Better automatic handoff (`feat/handoff-v2`)
 - [ ] performHandoff sends the same tools list (activeToolList) — cache prefix match;

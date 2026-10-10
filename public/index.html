@@ -62,6 +62,9 @@
         </div>
         <div class="topbar-right">
           <span id="top-model" class="top-model"></span>
+          <button id="browser-btn" class="browser-btn hidden" title="Browser side panel" aria-label="Browser side panel">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </button>
         </div>
       </header>
 
@@ -178,11 +181,18 @@
     </main>
 
     <aside id="browser-panel" class="browser-panel hidden" aria-label="Browser preview">
+      <div id="bp-resize" class="bp-resize" title="Drag to resize"></div>
       <div class="bp-head">
         <span id="bp-dot" class="bp-dot closed"></span>
         <input id="bp-url" class="bp-url" readonly spellcheck="false" placeholder="No page open" />
+        <button id="bp-errors" class="bp-errors hidden" title="Console errors on this page">⚠ <span id="bp-errors-n">0</span></button>
         <span id="bp-status" class="bp-status">Closed</span>
         <button id="bp-close" class="bp-close btn ghost" title="Close panel" aria-label="Close panel">✕</button>
+      </div>
+      <div id="bp-viewports" class="bp-viewports">
+        <button id="bp-vp-desktop" class="bp-vp active" data-size="desktop">Desktop</button>
+        <button id="bp-vp-tablet" class="bp-vp" data-size="tablet">Tablet</button>
+        <button id="bp-vp-mobile" class="bp-vp" data-size="mobile">Mobile</button>
       </div>
       <div id="bp-view" class="bp-view">
         <div id="bp-empty" class="bp-empty">No page open. Ask Halo to open a localhost page in Code mode.</div>

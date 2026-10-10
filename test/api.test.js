@@ -535,6 +535,13 @@ test('browser tool: per-tool policy honored; absent in Chat mode', async () => {
   assert.ok(!chatEvents.some((e) => e.type === 'tool_start' && e.name === 'browser'), 'browser never runs in Chat mode');
 });
 
+test('POST /api/browser/viewport: unknown size 400, no open page 409', async () => {
+  let r = await req('POST', '/api/browser/viewport', { sessionId: 'apitest-bpv', size: 'ultrawide' });
+  assert.equal(r.status, 400);
+  r = await req('POST', '/api/browser/viewport', { sessionId: 'apitest-bpv', size: 'mobile' });
+  assert.equal(r.status, 409);
+});
+
 test('reasoning: per-conversation control reaches the API request', async () => {
   const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-reason-'));
   mockHandler = (body) => {

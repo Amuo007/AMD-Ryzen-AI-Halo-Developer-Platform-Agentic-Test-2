@@ -1,12 +1,14 @@
-# PROGRESS.md — Phase 3: forge as a strong agent
+# PROGRESS.md — Phase 4: images + invisible local browser
 
 ## Current status
-- Branch: `main` — final pass
-- Doing: done — all tests green (174), live test passed, tagged v3.0.0
-- Half-done: nothing; smoke 25/25, all suites green
-- Baseline: v3 work — meter, handoff, rebrand all merged
+- Branch: `main` — Phase 4 start (Phase 3 shipped as v3.0.0; reasoning-Off fix merged)
+- Doing: writing the Phase 4 plan
+- Half-done: nothing yet
+- Baseline: v3.0.0 — 174 tests green
 
 ## Legend: [ ] todo · [x] done · [~] in progress
+
+## Phase 3 — COMPLETE (v3.0.0)
 
 ## 0. Setup
 - [x] Orient: read README/DECISIONS, git log, run tests (126 pass)
@@ -70,3 +72,116 @@
 - [x] DECISIONS.md updated; PROGRESS.md fully ticked
 - [x] One short live test vs http://192.168.1.252:13305/v1 (reasoning on + off, several tools)
 - [x] Tag v3.0.0, push main + tag
+
+---
+
+# Phase 4 — Images + invisible local browser
+
+Extra rules: zero deps (Node 22 built-ins, global `WebSocket` + `child_process`); no
+Playwright/Puppeteer — Chrome is driven over CDP. LOCAL ONLY: the browser may open only
+localhost / 127.0.0.1 / [::1] / *.localhost (any port) or file:// paths inside the
+workspace; off-localhost navigation is stopped and reported. Tests use the mock LLM +
+local test pages; the live model server is never called during development.
+
+## 0. Small fixes first (`feat/identity-reasoning`)
+- [ ] a) Identity: "Identity" section near the top of `prompt/system.md` + `prompt/chat.md`
+      (name Halo, never impersonate other assistants, model id filled at build time,
+      "You are **Halo AI Harness**" → "You are **Halo**"); built prompt contains the
+      identity section + real configured model id (tests)
+- [ ] b) Reasoning: "Medium" in the Think selector (Auto/High/Medium/Low/Off);
+      medium → `chat_template_kwargs {enable_thinking:true, thinking:true}` +
+      `reasoning_effort:"medium"`; existing auto/high/low/off unchanged; tests
+
+## 1. Image input — Chat AND Code (`feat/image-input`)
+- [ ] Attach 3 ways: paperclip/+ button, paste (Cmd/Ctrl+V), drag-and-drop on the chat
+- [ ] Thumbnails above the input with × to remove before sending; max 5 images/message,
+      PNG/JPEG/WebP/GIF only; browser (canvas) downscale to max 1568px long edge
+- [ ] `POST /api/images` + `GET /api/images/:id`: files stored in Halo's data dir,
+      referenced by id in SQLite (no base64 blobs in the DB)
+- [ ] Model sees OpenAI-style content parts: `[{type:"text"}, {type:"image_url",…}]`
+- [ ] User bubbles show images; click to enlarge (lightbox); old conversations reload
+      with their images
+- [ ] Setting "Model supports images" (default on); off → attach disabled + tooltip,
+      browser screenshots fall back to text snapshots
+- [ ] Tests: upload paths (button/paste/drop via DOM harness), size/type limits,
+      storage + route, message format, reload, vision-off fallback
+
+## 2. Headless browser engine (`src/browser/`) (`feat/browser-engine`)
+- [ ] Chrome/Chromium/Edge auto-detect (macOS/Linux/Windows); Settings override + env var
+- [ ] Launch: `--headless=new`, `--remote-debugging-port=0`, temp `--user-data-dir`,
+      no first-run — a window must never appear
+- [ ] Lazy start; one isolated browser context per conversation; close after 10 min idle
+      and on server exit (no orphan Chrome processes)
+- [ ] Small CDP client over global WebSocket: id-matched request/response, event
+      subscriptions, timeouts, clear "Chrome not found — set the path in Settings" error
+- [ ] Tests against a fake CDP WebSocket server (node:http upgrade, no deps)
+
+## 3. `browser` tool — Code mode only (`feat/browser-tool`)
+- [ ] ONE tool, `action` param: open/back/reload; screenshot (viewport|full, JPEG);
+      snapshot (compact text outline, numbered refs for links/buttons/inputs);
+      click(ref|selector|x,y), type, key, scroll, hover; resize(desktop|tablet|mobile);
+      console; wait_for(text|selector, timeout)
+- [ ] Screenshots reach the model as an image_url part in a follow-up user message
+      (tool result stays text); only the latest 2 screenshots kept in model context
+      (older → "[earlier screenshot removed]"); user-attached images never pruned
+- [ ] Every screenshot stored with the conversation (section-1 image storage)
+- [ ] Per-tool enable/disable policy honored; tool absent in Chat mode
+
+## 4. Browser card + inline screenshots in chat (`feat/browser-card`)
+- [ ] Browser card on first page open of a turn: live preview image on top; below it
+      page title, subtitle "host:port · Live"/"· Closed", "Open" button, ⋮ menu
+      (Copy URL, Open in my browser)
+- [ ] One card per browser session per turn, updated in place (no card per action)
+- [ ] "Open" opens the side panel (section 6) for real-time watching
+- [ ] Screenshots inline in the chat where taken (real image, caption URL + viewport,
+      click to enlarge)
+- [ ] Agent narrates 1–2 lines after each screenshot (prompt + rendering)
+- [ ] Reopening an old conversation: card shown (last frame, "Closed") + screenshots in
+      place; look matches reference/claude-browser-card.png if present, else adapted to
+      Halo's theme incl. dark mode
+
+## 5. Visual check loop (`feat/visual-loop`)
+- [ ] System prompt: build UI → start app (background shell) → open → screenshot +
+      console → compare vs request/reference image → fix → reload → repeat until right
+- [ ] Polish pass checklist (overlap, cut-off text, spacing, contrast, broken images,
+      dead buttons, console errors, mobile) + list remaining ideas instead of guessing
+- [ ] "open localhost:3000 and tell me what can be improved" review flow works
+
+## 6. Browser side panel (`feat/browser-panel`)
+- [ ] Right-side panel, hidden by default; opens from card "Open" or header browser
+      button; close button; draggable width remembered
+- [ ] Read-only URL bar; live view via CDP `Page.startScreencast` throttled ~2 fps over
+      the existing SSE; status Live/Closed; viewport size switch; console-error badge
+- [ ] Browser tool honors per-tool enable/disable policy
+
+## 7. Better automatic handoff (`feat/handoff-v2`)
+- [ ] performHandoff sends the same tools list (activeToolList) — cache prefix match;
+      ignore tool calls in the summary reply
+- [ ] Rolling memory: carry the previous handoff summary forward condensed; new sections
+      "## Original task" (verbatim), "## Earlier work (condensed)",
+      "## Plan / remaining todos" next to Goal/Done/Current state/Branches & files/Next steps
+- [ ] Session budget: total input tokens per conversation tracked; > 1,000,000
+      (Settings-configurable) → banner suggesting a fresh chat + button opening a new
+      Code chat in the same workspace pre-filled with the latest handoff summary
+- [ ] Tests with tiny limits: tools in handoff request; 2nd handoff carries 1st's
+      points; original task survives 3 handoffs; banner appears after the limit
+
+## 8. Tests — mock only (`feat/browser-tests`)
+- [ ] CDP client vs fake CDP WebSocket server (test/helpers)
+- [ ] Real-Chrome integration test, auto-skip when Chrome missing: local page with broken
+      button + console error → open, screenshot, snapshot, click, read console, resize
+- [ ] Local-only guard: external URLs refused; off-localhost navigation stopped
+- [ ] Screenshot pruning, inline screenshots, one card per turn updating in place,
+      "Open" opens panel, card "Closed" after shutdown + on reload, no browser tool in
+      Chat mode, process cleanup (no Chrome left after tests)
+
+## 9. Finish
+- [ ] Scripted end-to-end smoke with the real bin + mock LLM (smoke-v4)
+- [ ] README (identity, reasoning levels, images, browser, card, inline screenshots, side
+      panel, local-only rule, handoff + session budget, settings); DECISIONS.md updated;
+      PROGRESS.md fully ticked
+- [ ] ONE short live test vs http://192.168.1.252:13305/v1: Code mode — attach a mockup
+      image, build matching page, card appears, "Open" shows live view, screenshots in
+      chat, differences noticed + fixed + re-checked; Chat mode — image question +
+      "who are you?" (must answer Halo)
+- [ ] Tag v4.0.0, push main + tag

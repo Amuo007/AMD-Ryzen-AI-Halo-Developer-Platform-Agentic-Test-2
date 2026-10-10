@@ -1,7 +1,7 @@
 {
-  "name": "forge",
-  "version": "1.0.0",
-  "description": "forge — a coding agent with a web UI, powered by any OpenAI-compatible LLM API. Zero dependencies.",
+  "name": "halo-ai-harness",
+  "version": "3.0.0",
+  "description": "Halo AI Harness — an agentic coding assistant with a web UI, powered by any OpenAI-compatible LLM API. Zero dependencies.",
   "type": "module",
   "license": "MIT",
   "engines": {

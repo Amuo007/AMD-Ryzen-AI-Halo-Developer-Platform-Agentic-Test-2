@@ -1,4 +1,4 @@
-/* forge web UI — Chat + Code modes, SQLite-backed sessions, reference-inspired look */
+/* Halo AI Harness web UI — Chat + Code modes, SQLite-backed sessions, reference-inspired look */
 const $ = (sel) => document.querySelector(sel);
 
 const els = {
@@ -259,7 +259,7 @@ function appendReasoning(text) {
     const details = el('details', { class: 'think-block' });
     details.open = true;
     const label = el('span', { class: 'think-label', text: 'Thinking…' });
-    const summary = el('summary', { class: 'think-summary' }, [el('span', { class: 'think-ico', text: '◍' }), label]);
+    const summary = el('summary', { class: 'think-summary' }, [el('span', { class: 'think-ico', html: haloIconSvg('halo-spin') }), label]);
     const body = el('div', { class: 'think-body' });
     details.appendChild(summary);
     details.appendChild(body);
@@ -280,6 +280,8 @@ function finalizeThinking() {
   clearInterval(t.timer);
   const secs = Math.max(1, Math.round((Date.now() - t.startedAt) / 1000));
   t.label.textContent = `Thought for ${secs}s`;
+  const ico = t.summary.querySelector('.think-ico');
+  if (ico) ico.innerHTML = haloIconSvg('');
   t.details.open = false;
   state.thinkingEl = null;
 }
@@ -378,7 +380,7 @@ function applyToolUpdate(card, { name, argsText, status, result, diff }) {
 function renderPermission({ requestId, toolName, description }) {
   endAssistant();
   const card = el('div', { class: 'perm-card' });
-  card.appendChild(el('div', { class: 'perm-title', text: 'forge wants to:' }));
+  card.appendChild(el('div', { class: 'perm-title', text: 'Halo AI Harness wants to:' }));
   card.appendChild(el('div', { class: 'perm-desc', text: description }));
   const actions = el('div', { class: 'perm-actions' });
   const answer = async (decision) => {
@@ -758,7 +760,7 @@ function greetingWord() {
 }
 function displayName() {
   const n = (els.userName.textContent || '').trim();
-  return n && n !== 'forge' ? n : '';
+  return n && n !== 'Halo AI Harness' ? n : '';
 }
 function renderWelcome() {
   els.messages.innerHTML = '';

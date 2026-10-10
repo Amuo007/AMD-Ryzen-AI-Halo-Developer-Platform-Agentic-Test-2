@@ -22,7 +22,7 @@ test('default prompt comes from the repo prompt/ directory', async () => {
   const r = await resolvePrompt({ mode: 'code', workspace: ws });
   assert.equal(r.source, 'default');
   assert.match(r.path, /prompt[/\\]system\.md$/);
-  assert.match(r.text, /forge/);
+  assert.match(r.text, /Halo AI Harness/);
   assert.match(r.text, /todo/); // mentions the todo workflow
   assert.match(r.text, /background/); // mentions background shells
   const c = await resolvePrompt({ mode: 'chat' });
@@ -84,7 +84,7 @@ test('buildSystemPrompt appends global append.md and AGENTS.md', async () => {
   const agentsAt = p.indexOf('PROJECT NOTES');
   assert.ok(appendAt >= 0 && agentsAt >= 0);
   assert.ok(appendAt < agentsAt, 'global append before AGENTS.md');
-  assert.ok(p.indexOf('GLOBAL APPEND TEXT') > p.indexOf('forge'), 'base first');
+  assert.ok(p.indexOf('GLOBAL APPEND TEXT') > p.indexOf('Halo AI Harness'), 'base first');
   const chat = await buildChatSystemPrompt();
   assert.match(chat, /GLOBAL APPEND TEXT/);
   await fs.rm(path.join(process.env.FORGE_CONFIG_DIR, 'append.md'));

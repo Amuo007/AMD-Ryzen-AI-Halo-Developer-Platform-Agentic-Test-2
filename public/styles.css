@@ -1,4 +1,4 @@
-/* ================= forge — reference-inspired UI ================= */
+/* ================= Halo AI Harness — reference-inspired UI ================= */
 :root {
   --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
   --sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -68,8 +68,8 @@ button { font: inherit; cursor: pointer; }
   border-right: 1px solid var(--border);
 }
 .side-top { display: flex; align-items: center; gap: 12px; padding: 2px 4px 6px; }
-.brand-mini { font-family: var(--serif); font-weight: 600; font-size: 18px; letter-spacing: 0.3px; }
-.brand-icon { color: var(--accent); margin-right: 5px; }
+.brand-mini { font-family: var(--serif); font-weight: 600; font-size: 15.5px; letter-spacing: 0.2px; white-space: nowrap; display: inline-flex; align-items: center; }
+.brand-icon { color: var(--accent); margin-right: 7px; display: inline-flex; align-items: center; }
 .mode-switch { display: inline-flex; gap: 2px; background: var(--bg-hover); border-radius: 9px; padding: 2px; }
 .mode-btn {
   width: 34px; height: 30px; border: none; border-radius: 7px; background: transparent;

@@ -449,7 +449,7 @@ test('GET /api/prompt: default source + text, locations listed', async () => {
   const r = await req('GET', '/api/prompt?mode=code');
   assert.equal(r.status, 200);
   assert.equal(r.data.source, 'default');
-  assert.match(r.data.text, /forge/);
+  assert.match(r.data.text, /Halo AI Harness/);
   assert.match(r.data.locations.default, /prompt$/);
   const c = await req('GET', '/api/prompt?mode=chat');
   assert.equal(c.data.source, 'default');

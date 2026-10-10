@@ -7,7 +7,7 @@ import { loadAgentsMd, buildSystemPrompt, buildChatSystemPrompt } from './memory
 import { discoverSkills, skillsSectionText } from './skills.js';
 import { appendMessage, getConversation, loadMessages } from './db.js';
 import { ensureConversation } from './conversations.js';
-import { materializeForModel } from './images.js';
+import { materializeForModel, SCREENSHOT_NAME } from './images.js';
 import { loadConfig } from './config.js';
 
 export const turns = new Map(); // sessionId -> active or last turn
@@ -223,11 +223,12 @@ export async function runTurn(turn, userMessage, images = []) {
       if (!asstMsg.tool_calls?.length) break;
       if (isChat) break; // Chat mode never executes tools
 
-
+      const deferredScreenshots = [];
       for (let i = 0; i < asstMsg.tool_calls.length; i++) {
         const call = asstMsg.tool_calls[i];
         const callId = call.id || `call-${step}-${i}`;
         const toolName = call.function.name;
+        let pendingScreenshot = null;
         turn.emit({ type: 'tool_start', callId, name: toolName, argsText: call.function.arguments ?? '' });
 
         let status = 'ok';
@@ -261,6 +262,7 @@ export async function runTurn(turn, userMessage, images = []) {
             if (!toolRes.ok) status = 'error';
             if (toolRes.timedOut) status = 'timeout';
             if (toolRes.aborted) status = 'stopped';
+            pendingScreenshot = toolRes.screenshot ?? null;
           }
         }
 
@@ -268,6 +270,15 @@ export async function runTurn(turn, userMessage, images = []) {
         const toolMsg = { role: 'tool', tool_call_id: callId, name: toolName, content: resultText };
         messages.push(toolMsg);
         await appendMessage(turn.sessionId, toolMsg);
+        // OpenAI-compatible servers reject images inside tool messages, so a browser
+        // screenshot is attached as a follow-up user message — but only after every
+        // tool result of this assistant turn, to keep the tool-call order valid.
+        if (pendingScreenshot) deferredScreenshots.push(pendingScreenshot);
+      }
+      for (const shotId of deferredScreenshots) {
+        const shotMsg = { role: 'user', content: '[screenshot]', name: SCREENSHOT_NAME, images: [shotId] };
+        messages.push(shotMsg);
+        await appendMessage(turn.sessionId, shotMsg);
       }
     }
     turn.emit({ type: 'turn_end', stopped: turn.stopped, usage: turn.usage });

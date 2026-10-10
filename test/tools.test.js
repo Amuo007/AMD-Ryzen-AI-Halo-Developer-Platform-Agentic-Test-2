@@ -17,7 +17,7 @@ function tmpws() {
 
 test('tool definitions cover all tools', () => {
   const names = toolDefs.map((t) => t.function.name);
-  assert.deepEqual(names.sort(), ['edit_file', 'glob_files', 'kill_shell', 'list_dir', 'read_file', 'run_shell', 'search', 'shell_jobs', 'todo', 'use_skill', 'write_file']);
+  assert.deepEqual(names.sort(), ['browser', 'edit_file', 'glob_files', 'kill_shell', 'list_dir', 'read_file', 'run_shell', 'search', 'shell_jobs', 'todo', 'use_skill', 'write_file']);
   for (const def of toolDefs) assert.equal(def.type, 'function');
   assert.equal(isReadOnlyTool('read_file'), true);
   assert.equal(isReadOnlyTool('glob_files'), true);

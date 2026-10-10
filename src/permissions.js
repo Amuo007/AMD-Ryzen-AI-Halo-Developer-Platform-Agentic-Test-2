@@ -4,9 +4,9 @@ export const READ_ONLY_TOOLS = new Set(['read_file', 'list_dir', 'search', 'glob
 export const FILE_EDIT_TOOLS = new Set(['write_file', 'edit_file']);
 /**
  * Tools that never change anything in the workspace and are auto-approved in
- * every mode (use_skill only reads skill folders).
+ * every mode (use_skill only reads skill folders; browser is local-only).
  */
-export const AUTO_ALLOW_TOOLS = new Set([...READ_ONLY_TOOLS, 'todo', 'kill_shell']);
+export const AUTO_ALLOW_TOOLS = new Set([...READ_ONLY_TOOLS, 'todo', 'kill_shell', 'browser']);
 
 /**
  * Deny list: checked against the full shell command string in EVERY

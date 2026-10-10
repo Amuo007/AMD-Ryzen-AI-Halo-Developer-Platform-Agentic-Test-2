@@ -407,6 +407,17 @@ export function createRequestHandler() {
         await page.startScreencast({ everyNthFrame: Number(body.everyNthFrame) || 1 });
         return sendJson(res, 200, { ok: true, streaming: true });
       }
+      if (req.method === 'POST' && p === '/api/browser/viewport') {
+        const body = await readBody(req);
+        const id = String(body.sessionId ?? '');
+        const size = String(body.size ?? '');
+        const vp = browser.VIEWPORTS[size];
+        if (!vp) return sendJson(res, 400, { error: `unknown viewport "${size}" (use desktop, tablet or mobile)` });
+        const page = browser.getPage(id);
+        if (!page || page.closed) return sendJson(res, 409, { error: 'no page is open in the browser' });
+        await page.applyViewport(vp);
+        return sendJson(res, 200, { ok: true, viewport: { ...vp } });
+      }
       if (req.method === 'GET' && p === '/api/browser/events') {
         const id = url.searchParams.get('sessionId');
         if (!id) return sendJson(res, 400, { error: 'sessionId is required' });

@@ -494,3 +494,15 @@ dialog menu { display: flex; gap: 8px; justify-content: flex-end; margin: 12px 0
 .bp-view { flex: 1; min-height: 0; overflow: auto; display: flex; align-items: flex-start; justify-content: center; background: var(--bg); }
 .bp-img { width: 100%; display: block; }
 .bp-empty { color: var(--text-faint); font-size: 13px; padding: 40px 24px; text-align: center; }
+
+/* ================= browser side panel (v6 polish) ================= */
+.browser-btn { border: 1px solid transparent; background: none; color: var(--text-dim); border-radius: 8px; padding: 5px 7px; display: inline-flex; align-items: center; }
+.browser-btn:hover { background: var(--bg-hover); color: var(--text); }
+.browser-panel { position: relative; }
+.bp-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 5; touch-action: none; }
+.bp-resize:hover, .bp-resize:active { background: var(--accent-soft); }
+.bp-errors { border: none; background: var(--del-bg); color: var(--del-fg); border-radius: 999px; font-size: 12px; font-family: var(--mono); padding: 2px 8px; flex: none; }
+.bp-viewports { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.bp-vp { border: 1px solid var(--border); background: var(--bg-input); color: var(--text-dim); border-radius: 8px; padding: 3px 12px; font-size: 12px; }
+.bp-vp:hover { color: var(--text); border-color: var(--border-strong); }
+.bp-vp.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }

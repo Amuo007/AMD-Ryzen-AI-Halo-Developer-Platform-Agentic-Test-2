@@ -50,9 +50,16 @@ const els = {
   lightboxCaption: $('#lightbox-caption'),
   lightboxClose: $('#lightbox-close'),
   browserPanel: $('#browser-panel'),
+  browserBtn: $('#browser-btn'),
+  bpResize: $('#bp-resize'),
   bpUrl: $('#bp-url'),
   bpStatus: $('#bp-status'),
   bpDot: $('#bp-dot'),
+  bpErrors: $('#bp-errors'),
+  bpErrorsN: $('#bp-errors-n'),
+  bpVpDesktop: $('#bp-vp-desktop'),
+  bpVpTablet: $('#bp-vp-tablet'),
+  bpVpMobile: $('#bp-vp-mobile'),
   bpClose: $('#bp-close'),
   bpImg: $('#bp-img'),
   bpEmpty: $('#bp-empty'),
@@ -85,6 +92,8 @@ const state = {
   stats: null,
   browserCard: null, // live browser card for the current turn (updated in place)
   panelOpen: false,
+  browserToolEnabled: true, // browser tool per-tool policy (Settings → Tools)
+  browserPanelWidth: 0, // remembered panel width (px), 0 = default
 };
 
 /* ---------------- helpers ---------------- */
@@ -678,13 +687,6 @@ function renderTodos(todos) {
 
 /* ---------------- context meter ---------------- */
 
-function fmtTokens(n) {
-  n = n || 0;
-  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
-  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
-  return String(n);
-}
-
 const CtxRingC = 56.5;
 let ctxPopupOpen = false;
 
@@ -821,6 +823,8 @@ function onBrowserBus(ev) {
   } else if (ev.type === 'navigation' || ev.type === 'viewport') {
     if (card) card.__setMeta(ev);
     panelOnMeta(ev);
+  } else if (ev.type === 'console') {
+    if (ev.kind === 'error' || ev.kind === 'exception') panelShowErrors(panelConsoleErrors + 1);
   } else if (ev.type === 'state') {
     if (card) {
       card.__setMeta(ev);
@@ -974,13 +978,99 @@ function shotFromMessage(m) {
 
 /* ---------------- browser side panel ---------------- */
 
+const BP_MIN_WIDTH = 320;
+const BP_VIEWPORT_SIZES = { desktop: '1280x900', tablet: '834x1112', mobile: '390x844' };
+let panelConsoleErrors = 0;
+
+function bpMaxWidth() {
+  const w = (document.documentElement && document.documentElement.clientWidth) || 1600;
+  return Math.max(BP_MIN_WIDTH, Math.floor(w * 0.7));
+}
+
+/** Set + remember the panel width (drag handle, survives reload). */
+function setPanelWidth(w) {
+  const width = Math.min(Math.max(Math.round(w) || 460, BP_MIN_WIDTH), bpMaxWidth());
+  state.browserPanelWidth = width;
+  if (els.browserPanel) els.browserPanel.style.width = `${width}px`;
+  try {
+    localStorage.setItem('forge-bp-width', String(width));
+  } catch {
+    /* storage full — not important */
+  }
+}
+
+function wirePanelResize() {
+  const handle = els.bpResize;
+  if (!handle || handle.__wired) return;
+  handle.__wired = true;
+  let dragging = false;
+  let startX = 0;
+  let startW = 0;
+  handle.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    startX = Number(e.clientX) || 0;
+    startW = state.browserPanelWidth || 460;
+    if (typeof handle.setPointerCapture === 'function' && e.pointerId !== undefined) handle.setPointerCapture(e.pointerId);
+  });
+  const move = (e) => {
+    if (!dragging) return;
+    setPanelWidth(startW + (startX - (Number(e.clientX) || 0))); // drag left = wider
+  };
+  const end = () => {
+    dragging = false;
+  };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+}
+
+function panelVpButtons() {
+  return [
+    [els.bpVpDesktop, 'desktop'],
+    [els.bpVpTablet, 'tablet'],
+    [els.bpVpMobile, 'mobile'],
+  ];
+}
+
+function wirePanelViewports() {
+  for (const [btn] of panelVpButtons()) {
+    if (!btn || btn.__wired) continue;
+    btn.__wired = true;
+    btn.addEventListener('click', () => setPanelViewport(btn.getAttribute('data-size') || 'desktop'));
+  }
+}
+
+/** Viewport size switch — resizes the page the agent is viewing. */
+async function setPanelViewport(size) {
+  if (!state.sessionId || !state.panelOpen) return;
+  try {
+    await api('POST', '/api/browser/viewport', { sessionId: state.sessionId, size });
+    markPanelViewport(BP_VIEWPORT_SIZES[size]);
+  } catch {
+    setStatusError('Cannot resize: no page is open in the browser');
+  }
+}
+
+function markPanelViewport(vp) {
+  const match = typeof vp === 'string' ? vp : vp && `${vp.width}x${vp.height}`;
+  for (const [btn, size] of panelVpButtons()) {
+    if (!btn) continue;
+    btn.classList.toggle('active', BP_VIEWPORT_SIZES[size] === match);
+  }
+}
+
+function panelShowErrors(n) {
+  panelConsoleErrors = Number(n) || 0;
+  els.bpErrorsN.textContent = String(panelConsoleErrors);
+  els.bpErrors.classList.toggle('hidden', !panelConsoleErrors);
+}
+
 function openBrowserPanel() {
   if (!els.browserPanel) return;
   els.browserPanel.classList.remove('hidden');
   state.panelOpen = true;
-  if (state.sessionId) {
-    ensureBrowserLive();
-  }
+  setPanelWidth(state.browserPanelWidth || Number(localStorage.getItem('forge-bp-width')) || 460);
+  if (state.sessionId) ensureBrowserLive();
   refreshPanelState();
 }
 
@@ -996,6 +1086,7 @@ async function refreshPanelState() {
   try {
     const st = await api('GET', `/api/browser/state?sessionId=${encodeURIComponent(state.sessionId)}`);
     panelOnMeta(st);
+    panelShowErrors(st.consoleErrors || 0);
     if (st.status) panelOnStatus(st.status === 'Closed' ? 'Closed' : 'Live');
   } catch {
     /* keep whatever is shown */
@@ -1012,6 +1103,8 @@ function panelOnFrame(dataUrl) {
 function panelOnMeta(ev) {
   if (!state.panelOpen) return;
   if (ev.url !== undefined) els.bpUrl.value = ev.url || '';
+  if (ev.viewport) markPanelViewport(ev.viewport);
+  else if (ev.type === 'viewport') markPanelViewport(ev);
 }
 
 function panelOnStatus(status) {
@@ -1025,6 +1118,26 @@ function panelOnStatus(status) {
     els.bpEmpty.classList.remove('hidden');
     els.bpImg.classList.add('hidden');
   }
+}
+
+/* browser header button: Code mode + browser tool enabled only */
+
+function updateBrowserBtn() {
+  if (!els.browserBtn) return;
+  const show = state.agentMode === 'code' && state.browserToolEnabled !== false && Boolean(state.sessionId);
+  els.browserBtn.classList.toggle('hidden', !show);
+}
+
+async function refreshBrowserPolicy() {
+  try {
+    const data = await api('GET', '/api/tools');
+    const b = (data.tools || []).find((t) => t.name === 'browser');
+    state.browserToolEnabled = b ? b.enabled !== false : true;
+  } catch {
+    /* keep the current flag */
+  }
+  if (state.browserToolEnabled === false && state.panelOpen) closeBrowserPanel();
+  updateBrowserBtn();
 }
 
 /* ---------------- welcome screens ---------------- */
@@ -1326,6 +1439,7 @@ async function send() {
   }
   els.workspaceError.textContent = '';
   if (!state.sessionId) state.sessionId = newSessionId();
+  updateBrowserBtn();
   clearMessagesIfWelcome();
   connectEvents(state.sessionId);
   setRunning(true);
@@ -1381,6 +1495,7 @@ function newChat() {
   renderTodos([]);
   renderWelcome();
   updateTopbar();
+  updateBrowserBtn();
   els.input.focus();
 }
 
@@ -1397,6 +1512,7 @@ function setAgentMode(mode, newSession = true) {
   els.modeWrap.classList.toggle('hidden', mode === 'chat');
   els.input.placeholder = mode === 'chat' ? 'How can I help you today?' : 'Describe a task or ask a question…';
   updateTopIcon();
+  updateBrowserBtn();
   loadSessions();
   updateContextMeter();
   if (newSession) newChat();
@@ -1486,6 +1602,7 @@ function toolRow(t, refresh) {
       onclick: async () => {
         try {
           await api('POST', '/api/tools/enabled', { name: t.name, enabled: !t.enabled });
+          if (t.name === 'browser') refreshBrowserPolicy(); // header button + panel follow the policy
           refresh();
         } catch (err) {
           setStatusError(`Could not toggle tool: ${err.message}`);
@@ -1835,6 +1952,13 @@ async function init() {
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
   els.bpClose.addEventListener('click', () => closeBrowserPanel());
+  els.browserBtn.addEventListener('click', () => openBrowserPanel());
+  wirePanelResize();
+  wirePanelViewports();
+  {
+    const savedW = Number(localStorage.getItem('forge-bp-width'));
+    if (savedW > 0) state.browserPanelWidth = savedW;
+  }
   wireImageEvents();
   $('#ctx-meter')?.addEventListener('click', () => toggleCtxPopup());
   document.addEventListener('click', (e) => {
@@ -1860,6 +1984,7 @@ async function init() {
   }
 
   setAgentMode(state.agentMode, false);
+  refreshBrowserPolicy();
 
   if (state.agentMode === 'code' && els.workspace.value.trim()) {
     const last = localStorage.getItem('forge-last-session-' + els.workspace.value.trim());
@@ -1879,4 +2004,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard };
+globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard, setPanelViewport, setPanelWidth, updateBrowserBtn, refreshBrowserPolicy };

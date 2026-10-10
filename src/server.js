@@ -6,7 +6,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, saveConfig, publicConfig } from './config.js';
-import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback, getTodos } from './db.js';
+import { getConversation, deleteConversation, listConversations, listWorkspaces, importWorkspace, loadMessages, getStats, setFeedback, getTodos, conversationInputTokens } from './db.js';
 import { getTurn, startTurn, turns as turnsMap } from './agent.js';
 import { killAllJobs } from './tools/jobs.js';
 import { resolvePrompt, promptLocations } from './prompt.js';
@@ -307,7 +307,8 @@ export function createRequestHandler() {
           /* meter stays approximate if prompt files are unreadable */
         }
         const bd = contextBreakdown({ systemPrompt, skillsSection, toolDefs: defs, messages, actualPromptTokens: actual, sinceActual });
-        return sendJson(res, 200, { limit: cfg.contextLimit, handoffAt: cfg.handoffLimit, mode: conv.mode, ...bd });
+        const inputTokens = conversationInputTokens(id);
+        return sendJson(res, 200, { limit: cfg.contextLimit, handoffAt: cfg.handoffLimit, budget: cfg.sessionTokenBudget, inputTokens, overBudget: inputTokens > cfg.sessionTokenBudget, mode: conv.mode, ...bd });
       }
 
       if (req.method === 'GET' && p === '/api/skills') {

@@ -20,13 +20,51 @@ export const HANDOFF_DIRECTIVE = `SYSTEM: Automatic context handoff. Your conver
 Write a handoff summary for your future self, who will continue the task with no other memory of what happened so far.
 Use exactly these markdown sections, filled in with specifics (exact paths, commands, statuses, numbers):
 
+## Original task
 ## Goal
 ## Done
+## Earlier work (condensed)
 ## Current state
 ## Branches & files
 ## Next steps
+## Plan / remaining todos
+
+Rolling memory rules:
+- "## Original task": if an earlier handoff summary appears in this conversation, copy its "## Original task" section text verbatim, word for word; otherwise write the user's very first request verbatim.
+- "## Earlier work (condensed)": condense the earlier handoff's key points (decisions, discoveries, numbers, gotchas) and carry them forward — never drop a fact the continuation needs.
+- "## Plan / remaining todos": carry the remaining plan / todo items from the previous handoff forward, updated with what has since been finished.
+- Summarize the work since the previous handoff in "## Done", "## Current state", "## Branches & files" and "## Next steps".
 
 Do not call tools. Do not ask questions. After the handoff, work resumes from "Next steps".`;
+
+const SECTION_ESC = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Text of a `## <title>` section inside a handoff summary ('' when absent/empty). */
+export function handoffSection(summary, title) {
+  const m = String(summary || '').match(new RegExp(`^## ${SECTION_ESC(title)}\\s*$\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm'));
+  return m ? m[1].trim() : '';
+}
+
+/**
+ * Rolling memory: guarantee the "## Original task" section of a new handoff.
+ * Carried verbatim from the previous handoff when the model omits or empties it;
+ * on the first handoff, the first real user message (the task itself).
+ */
+export function ensureHandoffSections(summary, messages) {
+  const text = String(summary || '').trim();
+  if (handoffSection(text, 'Original task')) return text;
+  const prev = [...messages].reverse().find((m) => m.name === HANDOFF_NAME);
+  let original = prev ? handoffSection(prev.content, 'Original task') : '';
+  if (!original) {
+    const firstUser = messages.find(
+      (m) => m.role === 'user' && m.name !== SCREENSHOT_NAME && !String(m.content ?? '').startsWith('SYSTEM: Automatic')
+    );
+    original = String(firstUser?.content ?? '').trim();
+  }
+  if (!original) return text;
+  const stripped = text.replace(new RegExp(`^## ${SECTION_ESC('Original task')}\\s*$\\n?`, 'm'), '').trim();
+  return `## Original task\n${original}${stripped ? `\n\n${stripped}` : ''}`;
+}
 
 /** Model-visible history: everything from the latest handoff marker onward. */
 export function historyFromRows(rows) {
@@ -333,11 +371,15 @@ async function performHandoff(turn, config, { systemPrompt, messages, signal }) 
   // materialize first: screenshot images and UI-only browser cards never belong in the summary request
   const ctx = trimContext([{ role: 'system', content: systemPrompt }, ...materializeForModel(messages, { vision: false }), directive], config.contextLimit);
   let usage = null;
+  // same tools list as normal steps (identical serialized prefix → provider prompt-cache hit);
+  // any tool calls the summary reply still contains are ignored, never executed
+  const tools = await activeToolList(turn.workspace);
   const result = await streamChatCompletion({
     baseURL: config.baseURL,
     apiKey: config.apiKey,
     model: config.model,
     messages: ctx,
+    tools,
     reasoning: turn.reasoning,
     signal,
     onText: (t) => turn.emit({ type: 'handoff_delta', text: t }),
@@ -351,7 +393,7 @@ async function performHandoff(turn, config, { systemPrompt, messages, signal }) 
       turn.emit({ type: 'usage', usage: u, total: turn.usage });
     },
   });
-  const summary = String(result.message.content ?? '').trim();
+  const summary = ensureHandoffSections(String(result.message.content ?? '').trim(), messages);
   if (!summary) return false;
   const msg = { role: 'assistant', content: summary, name: HANDOFF_NAME };
   const mid = await appendMessage(turn.sessionId, msg, {

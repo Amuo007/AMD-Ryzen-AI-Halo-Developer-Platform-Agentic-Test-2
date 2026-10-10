@@ -321,6 +321,14 @@ export function setFeedback(messageRowId, feedback) {
   getDb().prepare('UPDATE messages SET feedback = ? WHERE id = ?').run(feedback, Number(messageRowId));
 }
 
+/** Total input (prompt) tokens consumed by all LLM requests of a conversation. */
+export function conversationInputTokens(conversationId) {
+  const row = getDb()
+    .prepare('SELECT COALESCE(SUM(prompt_tokens), 0) AS n FROM messages WHERE conversation_id = ?')
+    .get(String(conversationId));
+  return Number(row?.n ?? 0);
+}
+
 export function deleteLastAssistantMessages(conversationId) {
   const db = getDb();
   const last = db.prepare('SELECT id, role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1').get(String(conversationId));

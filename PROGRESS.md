@@ -162,15 +162,15 @@ local test pages; the live model server is never called during development.
 - [x] Tests for the loop, the flight path and the idle/typing exclusion (204 green)
 
 ## 7. Better automatic handoff (`feat/handoff-v2`)
-- [ ] performHandoff sends the same tools list (activeToolList) — cache prefix match;
-      ignore tool calls in the summary reply
-- [ ] Rolling memory: carry the previous handoff summary forward condensed; new sections
+- [x] performHandoff sends the same tools list (activeToolList) — cache prefix match;
+      tool calls in the summary reply are ignored, never executed
+- [x] Rolling memory: carry the previous handoff summary forward condensed; new sections
       "## Original task" (verbatim), "## Earlier work (condensed)",
       "## Plan / remaining todos" next to Goal/Done/Current state/Branches & files/Next steps
-- [ ] Session budget: total input tokens per conversation tracked; > 1,000,000
+- [x] Session budget: total input tokens per conversation tracked; > 1,000,000
       (Settings-configurable) → banner suggesting a fresh chat + button opening a new
       Code chat in the same workspace pre-filled with the latest handoff summary
-- [ ] Tests with tiny limits: tools in handoff request; 2nd handoff carries 1st's
+- [x] Tests with tiny limits: tools in handoff request; 2nd handoff carries 1st's
       points; original task survives 3 handoffs; banner appears after the limit
 
 ## 8. Tests — mock only (`feat/browser-tests`)

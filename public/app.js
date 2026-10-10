@@ -94,6 +94,8 @@ const state = {
   panelOpen: false,
   browserToolEnabled: true, // browser tool per-tool policy (Settings → Tools)
   browserPanelWidth: 0, // remembered panel width (px), 0 = default
+  lastHandoffSummary: null, // latest handoff summary of the open session (session-budget prefill)
+  budgetDismissed: false, // session-budget banner closed by the user
 };
 
 /* ---------------- helpers ---------------- */
@@ -592,6 +594,7 @@ function renderEvent(ev) {
       break;
     }
     case 'handoff': {
+      state.lastHandoffSummary = ev.summary || null;
       if (state.handoffEl) {
         state.handoffEl.details.classList.remove('streaming');
         state.handoffEl.details.open = false;
@@ -698,14 +701,49 @@ function hideCtxMeter() {
 async function updateContextMeter() {
   if (state.agentMode !== 'code' || !state.sessionId) {
     hideCtxMeter();
+    renderBudgetBanner(null);
     return;
   }
   try {
     const d = await api('GET', `/api/context?sessionId=${encodeURIComponent(state.sessionId)}`);
     renderCtxMeter(d);
+    renderBudgetBanner(d);
     if (ctxPopupOpen) renderCtxPopup(d);
   } catch {
     /* keep previous reading */
+  }
+}
+
+/* ---------------- session budget ---------------- */
+
+function renderBudgetBanner(d) {
+  const banner = $('#budget-banner');
+  if (!banner) return;
+  const over = Boolean(d) && Number(d.budget) > 0 && Number(d.inputTokens) > Number(d.budget);
+  const show = over && !state.budgetDismissed;
+  banner.setAttribute('data-over', show ? '1' : '0');
+  if (!show) {
+    banner.classList.add('hidden');
+    return;
+  }
+  const text = $('#budget-text');
+  if (text)
+    text.innerHTML =
+      `<strong>${fmtTokens(d.inputTokens)} input tokens used — past the ${fmtTokens(d.budget)} session budget.</strong> ` +
+      'A fresh context works best now: start a new chat and carry the latest handoff summary over.';
+  banner.classList.remove('hidden');
+}
+
+function freshChatWithSummary() {
+  const summary = state.lastHandoffSummary;
+  if (state.agentMode !== 'code') setAgentMode('code', false);
+  newChat();
+  state.budgetDismissed = true;
+  renderBudgetBanner(null);
+  if (summary && els.input) {
+    els.input.value = summary;
+    autosize();
+    els.input.focus();
   }
 }
 
@@ -1336,6 +1374,8 @@ async function openSession(id) {
   disconnectEvents();
   closeBrowserLive();
   state.sessionId = id;
+  state.lastHandoffSummary = null;
+  state.budgetDismissed = false;
   setAgentMode(session.mode, false);
   if (session.reasoning !== undefined) els.reasoning.value = session.reasoning || 'auto';
   if (session.workspace) els.workspace.value = session.workspace;
@@ -1348,6 +1388,7 @@ async function openSession(id) {
       else appendUser(m.content || '', m.images || []);
     } else if (m.role === 'assistant') {
       if (m.name === 'forge:handoff') {
+        state.lastHandoffSummary = m.content;
         renderHandoff(m.content);
         continue;
       }
@@ -1951,6 +1992,11 @@ async function init() {
   });
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
+  $('#budget-new-chat')?.addEventListener('click', freshChatWithSummary);
+  $('#budget-dismiss')?.addEventListener('click', () => {
+    state.budgetDismissed = true;
+    renderBudgetBanner(null);
+  });
   els.bpClose.addEventListener('click', () => closeBrowserPanel());
   els.browserBtn.addEventListener('click', () => openBrowserPanel());
   wirePanelResize();
@@ -2004,4 +2050,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard, setPanelViewport, setPanelWidth, updateBrowserBtn, refreshBrowserPolicy };
+globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting, openBrowserPanel, closeBrowserPanel, buildBrowserCard, appendShotFigure, showBrowserCard, setPanelViewport, setPanelWidth, updateBrowserBtn, refreshBrowserPolicy, updateContextMeter, freshChatWithSummary, renderBudgetBanner };

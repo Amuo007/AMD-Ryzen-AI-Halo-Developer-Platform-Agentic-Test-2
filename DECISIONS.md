@@ -160,3 +160,69 @@
   uncommitted work (`feat/reference-design`, split backend/UI commits), plus a 24-check
   end-to-end smoke (real `bin/forge.js` + mock LLM) covering chat, permission allow/deny,
   stop, stats, feedback, sessions, search, browse and delete — all green.
+
+## Phase 4 — images, invisible local browser, handoff v2 (v4)
+
+### Images
+- Images are **stored, never inlined as base64 in message rows**: `POST /api/images`
+  decodes a data URL, keeps the bytes in `<dataDir>/images/` and registers an id row
+  (conversation, source, mime, size). Messages reference ids; `/api/images/<id>` serves
+  them immutably. Keeps the DB small and makes reload cheap.
+- Client downscales attachments to max 1568 px on a canvas before upload (vision-token
+  sanity), max 5 per message, 10 MB decoded cap.
+- **`modelSupportsImages` toggle**: when off, image parts are never sent, the attach UI is
+  disabled, and browser screenshots degrade to text captions.
+
+### Invisible local browser
+- One shared headless browser process, **one isolated browser context per conversation**,
+  lazy start, 10-minute idle shutdown, kill the whole process group on server exit — plus
+  process/profile-cleanup assertions so no orphan Chrome can survive the test suite.
+- The tool surface is a **single `browser` tool with an `action` param** (not 14 tools):
+  fewer defs in the prompt, one policy switch, cache-stable prefix.
+- Screenshots can't ride inside tool messages on OpenAI-compatible servers, so a taken
+  screenshot is attached as a **follow-up `forge:screenshot` user message** with the image
+  part, after all tool results of the step (tool-call order stays valid). Only the latest
+  2 screenshots stay in model context (`materializeForModel` marks older ones);
+  user-attached images are never pruned.
+- **Cards are UI-only messages** (`forge:browser-card`, `forge:handoff`): persisted with
+  the conversation, stripped from everything the model sees. The card is one per browser
+  session per turn, updated in place (live via CDP screencast at ~2 fps over SSE), and
+  re-renders "Closed" from the stored last frame on reopen.
+- **Local-only rule** enforced at every layer: `open` refuses non-localhost/non-workspace
+  URLs up front, and the page session watches *every* navigation event that carries a url
+  (`frameScheduledNavigation`, `frameRequestedNavigation`, `frameStartedNavigating`,
+  `navigatedWithinDocument`, plus legacy `frameStartedLoading`) — recent Chrome stopped
+  sending the url on `frameStartedLoading`, which silently punched a hole in the first
+  implementation. `file://` is allowed only inside the workspace (realpath-compared).
+- Dialogs (alert/confirm) are auto-accepted and mirrored into the console so the agent
+  can never hang on them.
+
+### Handoff v2
+- Handoff requests send **the same tools list as normal steps** — identical serialized
+  prefix keeps provider prompt-caches warm; any tool calls in the summary reply are
+  ignored (the summary is text-only by contract, but models sometimes call anyway).
+- **Rolling memory**: the directive requires `## Original task` (verbatim copy from the
+  previous handoff or the first user message), `## Earlier work (condensed)` and
+  `## Plan / remaining todos` next to the older sections. The server additionally
+  **re-injects** the `## Original task` section verbatim when a model drops it, so the
+  task provably survives N handoffs.
+- **Session budget**: total input tokens per conversation = sum of real prompt tokens on
+  its messages (Settings `sessionTokenBudget`, default 1M). Over budget → banner above the
+  composer; its button opens a fresh Code chat in the same workspace pre-filled with the
+  latest handoff summary (the handoff text doubles as the seed for the new context).
+
+### Mascot frisbee
+- The throw is pure CSS on the existing `data-state` state machine (`m-halo-throw` +
+  `m-throw-arm` on waiting/thinking/talking, calm on idle/typing), so it starts with the
+  first token request and ends by itself when the turn ends or is stopped;
+  `prefers-reduced-motion` kills it. No JS timers, no extra state.
+
+### Testing
+- `test/helpers/fake-cdp.mjs`: a real WebSocket server hand-rolled on `node:http`
+  upgrade (no deps) that speaks just enough CDP to unit-test the client: id matching,
+  event fan-out, error replies, per-request timeouts, close semantics.
+- Real-Chrome integration test (broken button + console error page): open, screenshot,
+  snapshot refs, click, exception capture, resize, navigation blocking, cleanup — and it
+  **auto-skips** when no Chrome/Chromium/Edge is installed.
+- `scripts/smoke-v4.mjs` boots the real bin with the mock LLM and checks all v4 surfaces
+  end-to-end (20 checks).

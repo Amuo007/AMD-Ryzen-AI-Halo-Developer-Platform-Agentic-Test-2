@@ -187,10 +187,9 @@ local test pages; the live model server is never called during development.
 - [x] 210 tests green
 
 ## 9. Finish
-- [ ] Scripted end-to-end smoke with the real bin + mock LLM (smoke-v4)
-- [ ] README (identity, reasoning levels, images, browser, card, inline screenshots, side
-      panel, local-only rule, handoff + session budget, settings); DECISIONS.md updated;
-      PROGRESS.md fully ticked
+- [x] Scripted end-to-end smoke with the real bin + mock LLM (smoke-v4) — 20 checks green
+- [x] README (identity, reasoning levels, images, browser, card, inline screenshots, side
+      panel, local-only rule, handoff + session budget, settings); DECISIONS.md updated
 - [ ] ONE short live test vs http://192.168.1.252:13305/v1: Code mode — attach a mockup
       image, build matching page, card appears, "Open" shows live view, screenshots in
       chat, differences noticed + fixed + re-checked; Chat mode — image question +

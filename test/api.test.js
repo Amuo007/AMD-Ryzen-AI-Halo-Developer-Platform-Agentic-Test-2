@@ -601,7 +601,7 @@ test('GET /api/context: breakdown, real usage as ground truth, guards', async ()
 test('handoff: automatic context handoff in code mode at the limit; chat never hands off', async () => {
   const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-handoff-'));
   const u = (p, c) => usageChunk({ prompt_tokens: p, completion_tokens: c, total_tokens: p + c });
-  const SUM = '## Goal\nMake it work.\n\n## Done\nRan a big command.\n\n## Current state\nContext was full.\n\n## Branches & files\n- none\n\n## Next steps\nVerify.';
+  const SUM = '## Original task\ndo the thing\n\n## Goal\nMake it work.\n\n## Done\nRan a big command.\n\n## Earlier work (condensed)\nnone\n\n## Current state\nContext was full.\n\n## Branches & files\n- none\n\n## Next steps\nVerify.\n\n## Plan / remaining todos\n- [ ] verify';
   mockHandler = (body) => {
     const last = body.messages.at(-1);
     if (typeof last.content === 'string' && last.content.startsWith('SYSTEM: Automatic context handoff')) {
@@ -626,6 +626,8 @@ test('handoff: automatic context handoff in code mode at the limit; chat never h
 
   const directiveReq = mock.requests.find((b) => typeof b.messages.at(-1).content === 'string' && b.messages.at(-1).content.startsWith('SYSTEM: Automatic context handoff'));
   assert.ok(directiveReq, 'handoff directive reached the model');
+  assert.ok(Array.isArray(directiveReq.tools) && directiveReq.tools.length > 0, 'handoff request carries the same tools list (cache prefix match)');
+  assert.ok(directiveReq.tools.some((t) => t.function.name === 'run_shell'), 'the normal tool set is what got sent');
   // continuation happens in a fresh context: system + summary only, no name field leak
   const contIdx = mock.requests.indexOf(directiveReq) + 1;
   const cont = mock.requests[contIdx];
@@ -658,4 +660,79 @@ test('handoff: automatic context handoff in code mode at the limit; chat never h
   assert.equal(mock.requests.filter((b) => typeof b.messages.at(-1).content === 'string' && b.messages.at(-1).content.startsWith('SYSTEM: Automatic')).length, 1, 'only the code-mode handoff directive');
 
   await req('PUT', '/api/config', { contextLimit: 140000, handoffLimit: 128000 });
+});
+
+test('handoff v2: rolling memory — original task + earlier points survive 3 handoffs; dropped task re-injected; tool calls in the summary reply ignored; session input tokens tracked', async () => {
+  const ws = await fsp.mkdtemp(path.join(os.tmpdir(), 'forge-hoff2-'));
+  const u = (p, c) => usageChunk({ prompt_tokens: p, completion_tokens: c, total_tokens: p + c });
+  const sec = (s, t) => {
+    const m = String(s).match(new RegExp(`^## ${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm'));
+    return m ? m[1].trim() : '';
+  };
+  const TASK = 'Build a todo app with local storage.';
+  const startIdx = mock.requests.length;
+  let hoffCount = 0;
+  mockHandler = (body) => {
+    const last = body.messages.at(-1);
+    if (typeof last.content === 'string' && last.content.startsWith('SYSTEM: Automatic context handoff')) {
+      hoffCount += 1;
+      const prev = [...body.messages].reverse().find((m) => m.role === 'assistant' && typeof m.content === 'string' && m.content.startsWith('## Original task'));
+      const original = prev ? sec(prev.content, 'Original task') : TASK;
+      const carried = prev ? [sec(prev.content, 'Done'), sec(prev.content, 'Earlier work (condensed)')].filter(Boolean).join('\n') : 'none';
+      const sum = `## Original task\n${original}\n\n## Goal\ntodo app\n\n## Done\n- P${hoffCount} milestone ${hoffCount}\n\n## Earlier work (condensed)\n${carried}\n\n## Current state\nstep ${hoffCount} done\n\n## Branches & files\n- index.html\n\n## Next steps\nverify\n\n## Plan / remaining todos\n- [ ] finish ${hoffCount}`;
+      // handoff 2: the model drops the Original task section (server must re-inject it)
+      //             and its reply also contains an ignored tool call
+      if (hoffCount === 2) {
+        const sloppy = sum.replace(`## Original task\n${original}\n\n`, '');
+        return { chunks: [...textChunks(sloppy), ...toolCallChunks('run_shell', JSON.stringify({ command: 'echo SHOULD-NEVER-RUN' }), { id: 'call_hoff_sneak' }), deltaChunk({ role: 'assistant' }, 'tool_calls'), u(1900, 40)] };
+      }
+      return { chunks: [...textChunks(sum), deltaChunk({}, 'stop'), u(1900, 40)] };
+    }
+    if (last.role === 'user' && typeof last.content === 'string' && (last.content === TASK || last.content.startsWith('go '))) {
+      return { chunks: [...toolCallChunks('run_shell', JSON.stringify({ command: "printf 'x%.0s' $(seq 1 20000)" })), deltaChunk({ role: 'assistant' }, 'tool_calls'), u(950, 5)] };
+    }
+    return { chunks: [...textChunks('fine'), deltaChunk({}, 'stop'), u(960, 5)] };
+  };
+  await req('PUT', '/api/config', { contextLimit: 4000, handoffLimit: 2000, sessionTokenBudget: 1000000 });
+  const sessionId = 'apitest-hoff2';
+  let toolStartsAfterHandoff = 0;
+  for (const msg of [TASK, 'go 2', 'go 3']) {
+    const r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: msg, mode: 'full' });
+    assert.equal(r.status, 202);
+    let sawHandoff = false;
+    const events = await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' });
+    for (const ev of events) {
+      if (ev.type === 'handoff') sawHandoff = true;
+      if (sawHandoff && ev.type === 'tool_start') toolStartsAfterHandoff += 1;
+    }
+    assert.ok(sawHandoff, `handoff fired for "${msg}"`);
+  }
+  assert.equal(hoffCount, 3);
+  assert.equal(toolStartsAfterHandoff, 0, 'no tool from the summary reply was executed');
+
+  const s = await req('GET', `/api/session?sessionId=${sessionId}`);
+  const hoffs = s.data.session.messages.filter((m) => m.name === 'forge:handoff').map((m) => m.content);
+  assert.equal(hoffs.length, 3);
+  assert.ok(hoffs[0].startsWith(`## Original task\n${TASK}`), 'handoff 1 has the verbatim task');
+  // handoff 2: model dropped the task — server re-injected it verbatim from handoff 1
+  assert.ok(hoffs[1].startsWith(`## Original task\n${TASK}`), 'dropped task re-injected into handoff 2');
+  assert.ok(hoffs[1].includes('P1 milestone 1'), '2nd handoff carries the 1st handoff points');
+  // handoff 3: everything survived three rounds
+  assert.ok(hoffs[2].startsWith(`## Original task\n${TASK}`), 'original task survives 3 handoffs');
+  for (const p of ['P1 milestone 1', 'P2 milestone 2', 'P3 milestone 3']) assert.ok(hoffs[2].includes(p), `point ${p} missing`);
+  assert.ok(hoffs[2].includes('## Plan / remaining todos'), 'plan / remaining todos section present');
+
+  for (const b of mock.requests.slice(startIdx)) {
+    const isDir = b.messages.at(-1) && typeof b.messages.at(-1).content === 'string' && b.messages.at(-1).content.startsWith('SYSTEM: Automatic context handoff');
+    if (isDir) assert.ok(Array.isArray(b.tools) && b.tools.length > 0, 'every handoff request carries the tools list');
+  }
+
+  const ctx = await req('GET', `/api/context?sessionId=${sessionId}`);
+  assert.ok(ctx.data.inputTokens > 4000, 'total conversation input tokens tracked');
+  assert.equal(ctx.data.budget, 1000000);
+  assert.equal(ctx.data.overBudget, false);
+  await req('PUT', '/api/config', { sessionTokenBudget: 3000 });
+  const ctx2 = await req('GET', `/api/context?sessionId=${sessionId}`);
+  assert.equal(ctx2.data.overBudget, true, 'budget exceeded after shrinking it');
+  await req('PUT', '/api/config', { sessionTokenBudget: 1000000, contextLimit: 140000, handoffLimit: 128000 });
 });

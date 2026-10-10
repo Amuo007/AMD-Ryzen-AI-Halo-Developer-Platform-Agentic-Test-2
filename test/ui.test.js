@@ -692,3 +692,50 @@ test('runtime: browser tool policy — panel closes + button disabled when the b
     app.done();
   }
 });
+
+test('session budget banner: markup + CSS exist', () => {
+  const html = pub('index.html');
+  assert.match(html, /<div id="budget-banner" class="budget-banner hidden"/);
+  assert.match(html, /id="budget-new-chat"/);
+  assert.match(html, /id="budget-dismiss"/);
+  const css = pub('styles.css');
+  assert.match(css, /\.budget-banner \{/);
+  assert.match(css, /\.budget-btn \{/);
+});
+
+test('runtime: session-budget banner appears past the limit; button opens a fresh Code chat prefilled with the latest handoff summary; dismiss hides', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  let over = false;
+  const fetchStub = async (url) => {
+    if (String(url).includes('/api/context'))
+      return { ok: true, status: 200, json: async () => ({ used: 100, limit: 1000, parts: [], budget: 1000, inputTokens: over ? 1200 : 500, overBudget: over }) };
+    return null;
+  };
+  const app = await bootApp({ storage: { 'forge-agent-mode': 'code' }, fetchStub });
+  try {
+    const banner = app.els.get('#budget-banner');
+    app.api.state.sessionId = 'sb-1';
+    await app.api.updateContextMeter();
+    assert.equal(banner.getAttribute('data-over'), '0', 'no banner under the budget');
+
+    over = true;
+    await app.api.updateContextMeter();
+    assert.equal(banner.getAttribute('data-over'), '1', 'banner appears after crossing the limit');
+    assert.match(app.els.get('#budget-text').__html, /session budget/);
+
+    // the button starts a new chat in the same workspace prefilled with the latest handoff summary
+    app.api.state.lastHandoffSummary = '## Original task\nmake the thing\n\n## Next steps\nverify';
+    app.fire(app.els.get('#budget-new-chat'), 'click');
+    assert.equal(app.api.state.sessionId, null, 'fresh chat opened');
+    assert.match(app.els.get('#input').value, /## Original task\nmake the thing/);
+
+    // dismiss hides the banner even while still over budget
+    await app.api.updateContextMeter();
+    app.fire(app.els.get('#budget-dismiss'), 'click');
+    assert.equal(banner.getAttribute('data-over'), '0');
+    assert.equal(app.api.state.budgetDismissed, true);
+    assert.ok(!app.rejections.length, 'no unhandled rejections');
+  } finally {
+    app.done();
+  }
+});

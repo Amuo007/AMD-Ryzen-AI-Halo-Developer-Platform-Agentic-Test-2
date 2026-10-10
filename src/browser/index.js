@@ -200,6 +200,16 @@ class PageSession {
 
   _wire() {
     this.off = [];
+    // Recent Chrome versions send no url on Page.frameStartedLoading, so the
+    // local-only guard listens on every navigation event that carries a url.
+    for (const ev of ['Page.frameScheduledNavigation', 'Page.frameRequestedNavigation', 'Page.frameStartedNavigating', 'Page.navigatedWithinDocument']) {
+      this.off.push(
+        this.client.on(ev, (p, sid) => {
+          if (sid !== this.sessionId) return;
+          this._checkNav(p.url);
+        })
+      );
+    }
     this.off.push(
       this.client.on('Page.frameStartedLoading', (p, sid) => {
         if (sid !== this.sessionId) return;

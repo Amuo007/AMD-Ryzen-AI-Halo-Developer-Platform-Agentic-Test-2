@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 3: forge as a strong agent
 
 ## Current status
-- Branch: `feat/handoff` (next `feat/rebrand`)
-- Doing: task 7 — rebrand to Halo AI Harness (name, halo SVG thinking loader)
-- Half-done: nothing; task 6 (context meter + automatic handoff) complete, 171 tests green
-- Baseline: main = 2205cd9, 169 tests green
+- Branch: `main` — final pass
+- Doing: task 8 — docs done; one live test, then tag v3.0.0
+- Half-done: nothing; smoke 25/25, all suites green
+- Baseline: v3 work — meter, handoff, rebrand all merged
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -65,8 +65,8 @@
 - [x] Halo image converted to SVG; used as thinking loader (Thought block + while model thinks); existing mascot avatar stays
 
 ## 8. Polish + docs + release
-- [ ] End-to-end manual smoke of every new capability (real bin + mock LLM, scripted)
-- [ ] README: tools, skills, prompt file, reasoning, context meter/handoff, MCP config
-- [ ] DECISIONS.md updated; PROGRESS.md fully ticked
+- [x] End-to-end manual smoke of every new capability (real bin + mock LLM, scripted) — `scripts/smoke-v3.mjs`, 25/25
+- [x] README: tools, skills, prompt file, reasoning, context meter/handoff, MCP config
+- [x] DECISIONS.md updated; PROGRESS.md fully ticked
 - [ ] One short live test vs http://192.168.1.252:13305/v1 (reasoning on + off, several tools)
 - [ ] Tag v3.0.0, push main + tag

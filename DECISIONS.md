@@ -1,4 +1,11 @@
-# DECISIONS.md — forge design choices
+# DECISIONS.md — Halo AI Harness design choices
+
+## Name
+- **v3 rebrand: "Halo AI Harness".** All user-facing strings, prompts, favicon and brand
+  mark use the name (halo ring converted to SVG; it doubles as the thinking loader).
+  Internal identifiers — `~/.forge` config/skills directories, `FORGE_*` env vars,
+  `forge-*` localStorage keys, the `forge:handoff` message marker, `bin/forge.js` — were
+  deliberately **not** renamed so existing installs, sessions and settings keep working.
 
 ## Stack
 - **Zero dependencies.** Everything uses Node 22 built-ins (`node:http`, `fetch`,
@@ -53,11 +60,25 @@
 
 ## Agent loop & context
 - Loop: build `[system, ...history]` → trim → stream → run tool calls → append results →
-  repeat until no tool calls or `maxSteps`.
-- **Token estimate = chars/4.** Trimming shrinks tool outputs first (to ~800 chars, with
-  a marker), then drops whole oldest turns (an assistant turn with tool_calls drops its
-  tool results with it, keeping the message list API-valid). The system prompt and the
-  latest user message are never dropped.
+  repeat until no tool calls or `maxSteps`. History is now loaded from SQLite every turn
+  (it was previously only the current user message — the loop never actually saw prior
+  turns; without this the 140K window and handoff are meaningless).
+- **Token estimate = chars/4**, but the API's real `usage.prompt_tokens` for the last
+  request is used as **ground truth** (actual + estimate of anything appended after it)
+  for the meter and for the handoff trigger. Trimming shrinks tool outputs first (to
+  ~800 chars, with a marker), then drops whole oldest turns (an assistant turn with
+  tool_calls drops its tool results with it, keeping the message list API-valid). The
+  system prompt and the latest user message are never dropped.
+- **Context window default 140K**, handoff default 128K (both Settings-configurable;
+  handoff is clamped to `[2000, contextLimit - 2000]`).
+- **Automatic handoff (Code mode only):** when the next request would reach the handoff
+  limit, the model is asked (via a fixed directive) to write a `## Goal / ## Done /
+  ## Current state / ## Branches & files / ## Next steps` summary; it is persisted as an
+  assistant message named `forge:handoff`, the working context resets to that summary, and
+  work continues without user action. Everything before the marker stays in the session
+  (readable in the UI, rendered as a collapsible handoff card with the halo icon) but is
+  excluded from future model contexts. Chat mode never hands off. If the model returns an
+  empty summary the handoff is skipped for that turn (trimming still protects the window).
 - **AGENTS.md** from the workspace root is appended to the system prompt (capped at 32 KB).
 
 ## Frontend
@@ -94,6 +115,18 @@
   real LCS line-diff (red/green) for write/edit. Cards auto-expand on error/denied.
 - **Permission dialogs** live inline in the chat (not a modal) so they survive reload via
   the SSE replay buffer.
+- **Context meter (v3)**: a circular SVG ring + % sits in the composer bar (Code mode
+  sessions only; hidden with Chat or no session). Color escalates green → amber (70%) →
+  red (90%). Click opens a popup with the per-category breakdown (system prompt, skills,
+  tool defs, your messages, model replies, tool results) from `GET /api/context`, with a
+  note saying whether real API usage backs the numbers. Refreshed after every usage /
+  turn end / session open / mode switch; closes on outside click.
+- **Handoff card (v3)**: handoff summaries render as a collapsible card with the halo icon
+  ("Context handoff — continuing from this summary"); while the summary is being written
+  it streams live into an open card. `handoff` / `handoff_delta` SSE events drive it;
+  reopening a session recognizes the `forge:handoff` row.
+- **Thinking loader (v3)**: the "Thought for Ns" block icon is the halo SVG — spinning
+  while reasoning, static once finalized (respects `prefers-reduced-motion`).
 - The workspace picker is a server-backed directory browser (`/api/browse`) — a plain
   text input plus a folder list; the native file picker can't return directory paths
   reliably from a browser.
@@ -104,10 +137,16 @@
 
 ## Testing
 - Unit tests for tools, sandbox, permissions, config, SSE parser, tool-call assembly,
-  diff, context trimming, sessions, memory, UI contracts.
+  diff, context trimming + breakdown, sessions, memory, UI contracts (173 total).
 - API tests run the real server (ephemeral port) with a mock LLM: chat, permission
-  allow/deny, stop, invalid tool JSON, 409, reconnect replay.
-- E2E: scripted mock OpenAI server drives the full agent loop and asserts real files.
+  allow/deny, stop, invalid tool JSON, 409, reconnect replay, context meter, automatic
+  handoff (tiny limits on the mock).
+- E2E: scripted mock OpenAI server drives the full agent loop and asserts real files;
+  MCP is tested against a mock stdio MCP server.
+- `scripts/smoke-v3.mjs`: boots the **real `bin/forge.js`** with the mock LLM and runs 25
+  end-to-end checks across every v3 capability (multi-edit + permission, glob, search,
+  background jobs, todos, skills, tool policy, MCP call, reasoning params, prompt file
+  override, context meter, automatic handoff, feedback/stats).
 - Tests that stream use POST-before-SSE-connect; the turn buffers events so nothing is
   missed.
 

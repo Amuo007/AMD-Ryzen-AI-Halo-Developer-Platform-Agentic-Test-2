@@ -176,6 +176,19 @@
         <p class="composer-note">Halo AI Harness can make mistakes. Double-check important information.</p>
       </div>
     </main>
+
+    <aside id="browser-panel" class="browser-panel hidden" aria-label="Browser preview">
+      <div class="bp-head">
+        <span id="bp-dot" class="bp-dot closed"></span>
+        <input id="bp-url" class="bp-url" readonly spellcheck="false" placeholder="No page open" />
+        <span id="bp-status" class="bp-status">Closed</span>
+        <button id="bp-close" class="bp-close btn ghost" title="Close panel" aria-label="Close panel">✕</button>
+      </div>
+      <div id="bp-view" class="bp-view">
+        <div id="bp-empty" class="bp-empty">No page open. Ask Halo to open a localhost page in Code mode.</div>
+        <img id="bp-img" class="bp-img hidden" alt="Live browser view" />
+      </div>
+    </aside>
   </div>
 
   <dialog id="settings-modal">

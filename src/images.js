@@ -7,6 +7,8 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // decoded size cap per image
 export const ALLOWED_IMAGE_MIME = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif' };
 /** Screenshots taken by the browser tool carry this message name (user-role follow-ups). */
 export const SCREENSHOT_NAME = 'forge:screenshot';
+/** Persisted browser card (preview + url/title) appended at the end of a turn that used the browser. Never seen by the model. */
+export const BROWSER_CARD_NAME = 'forge:browser-card';
 /** Only the latest N screenshots stay visible to the model. */
 export const MAX_SCREENSHOTS_IN_CONTEXT = 2;
 
@@ -62,6 +64,8 @@ export function imageToPart(id) {
 
 /**
  * Turn stored messages into what the model actually receives:
+ *  - internal message names (screenshots, browser cards) are always stripped
+ *  - browser-card messages are dropped entirely (UI-only)
  *  - images on user messages become content parts (text first, then image_url parts)
  *  - with vision off, images are replaced by a text note
  *  - screenshots older than the latest N (name SCREENSHOT_NAME) lose their image
@@ -73,21 +77,24 @@ export function materializeForModel(messages, { vision = true } = {}) {
     if (m.name === SCREENSHOT_NAME && Array.isArray(m.images) && m.images.length) screenshotIdx.push(i);
   });
   const prunedScreenshots = new Set(screenshotIdx.slice(0, Math.max(0, screenshotIdx.length - MAX_SCREENSHOTS_IN_CONTEXT)));
-  return messages.map((m, i) => {
-    if (!Array.isArray(m.images) || !m.images.length) return m;
-    const text = typeof m.content === 'string' ? m.content : '';
+  const out = messages.map((m, i) => {
+    if (m.name === BROWSER_CARD_NAME) return null; // UI-only, never model content
+    const { name, ...rest } = m; // internal names never travel to the API
+    if (!Array.isArray(rest.images) || !rest.images.length) return rest;
+    const text = typeof rest.content === 'string' ? rest.content : '';
     if (!vision) {
-      return { ...m, content: `${text}${text ? '\n' : ''}[image attached but image support is off in Settings]` };
+      return { ...rest, content: `${text}${text ? '\n' : ''}[image attached but image support is off in Settings]` };
     }
     if (prunedScreenshots.has(i)) {
-      return { ...m, content: `${text}${text ? '\n' : ''}[earlier screenshot removed — only the latest ${MAX_SCREENSHOTS_IN_CONTEXT} screenshots stay in context]` };
+      return { ...rest, content: `${text}${text ? '\n' : ''}[earlier screenshot removed — only the latest ${MAX_SCREENSHOTS_IN_CONTEXT} screenshots stay in context]` };
     }
     const parts = text ? [{ type: 'text', text }] : [];
-    for (const id of m.images) {
+    for (const id of rest.images) {
       const part = imageToPart(id);
       if (part) parts.push(part);
     }
-    if (!parts.length) return { ...m, content: '[image file is missing]' };
-    return { ...m, content: parts };
+    if (!parts.length) return { ...rest, content: '[image file is missing]' };
+    return { ...rest, content: parts };
   });
+  return out.filter((m) => m !== null);
 }

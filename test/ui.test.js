@@ -474,3 +474,115 @@ test('vision-off: attach button disabled + tooltip, paste rejected', async () =>
     app.done();
   }
 });
+
+/* ---------------- browser card + inline screenshots (section 4) ---------------- */
+
+test('browser card + screenshots + side panel: markup, events and CSS wired', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="browser-panel"/);
+  assert.match(html, /id="bp-url"/);
+  assert.match(html, /id="bp-close"/);
+  const app = pub('app.js');
+  assert.match(app, /buildBrowserCard/);
+  assert.match(app, /browser-card-preview/);
+  assert.match(app, /browser-card-open/);
+  assert.match(app, /'Copy URL'/);
+  assert.match(app, /'Open in my browser'/);
+  assert.match(app, /forge:browser-card/);
+  assert.match(app, /forge:screenshot/);
+  assert.match(app, /appendShotFigure/);
+  assert.match(app, /shot-caption/);
+  assert.match(app, /case 'browser_page':/);
+  assert.match(app, /case 'browser_screenshot':/);
+  assert.match(app, /\/api\/browser\/events/);
+  assert.match(app, /\/api\/browser\/screencast/);
+  const css = pub('styles.css');
+  assert.match(css, /\.browser-card \{/);
+  assert.match(css, /\.shot-figure/);
+  assert.match(css, /\.browser-panel/);
+  // narration instruction in the code-mode prompt
+  assert.match(fs.readFileSync(path.join(process.cwd(), 'prompt', 'system.md'), 'utf8'), /1–2 short lines|1-2 short lines/);
+});
+
+test('runtime: browser card appears once per turn and updates in place; screenshots inline; Open opens panel', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const app = await bootApp();
+  const findAll = (node, cls, out = []) => {
+    if (node.className && String(node.className).split(' ').includes(cls)) out.push(node);
+    for (const c of node.children || []) findAll(c, cls, out);
+    return out;
+  };
+  try {
+    app.api.state.sessionId = 'live1';
+    const msgs = app.els.get('#messages');
+    app.api.renderEvent({ type: 'browser_page', url: 'http://localhost:3000/app', title: 'My App', viewport: '1280x900' });
+    let cards = findAll(msgs, 'browser-card');
+    assert.equal(cards.length, 1, 'card created');
+    assert.ok(cards[0].texts().some((t) => /localhost:3000 · Live/.test(t)), 'subtitle host · Live');
+    // second page event updates the same card (no new card per action)
+    app.api.renderEvent({ type: 'browser_page', url: 'http://localhost:3000/app', title: 'Renamed', viewport: '390x844' });
+    cards = findAll(msgs, 'browser-card');
+    assert.equal(cards.length, 1, 'still one card');
+    assert.ok(cards[0].texts().some((t) => /Renamed/.test(t)), 'title updated in place');
+    // menu items
+    assert.ok(cards[0].texts().some((t) => t === 'Copy URL'));
+    assert.ok(cards[0].texts().some((t) => t === 'Open in my browser'));
+    // inline screenshot
+    app.api.renderEvent({ type: 'browser_screenshot', imageId: 'img-s1', url: 'http://localhost:3000/app', viewport: '1280x900' });
+    const figs = findAll(msgs, 'shot-figure');
+    assert.equal(figs.length, 1, 'screenshot inline');
+    assert.ok(figs[0].texts().some((t) => /http:\/\/localhost:3000\/app · 1280x900/.test(t)), 'caption url + viewport');
+    // Open button opens the side panel
+    const openBtn = findAll(cards[0], 'browser-card-open')[0];
+    assert.ok(openBtn, 'Open button exists');
+    app.fire(openBtn, 'click');
+    assert.equal(app.api.state.panelOpen, true, 'panel opened from card');
+    // new chat resets the card
+    app.api.newChat();
+    assert.equal(app.api.state.browserCard, null, 'card state reset');
+    assert.equal(app.api.state.panelOpen, false, 'panel closed on new chat');
+  } finally {
+    app.done();
+  }
+});
+
+test('runtime: reopening a session shows the stored card (Closed) + screenshots in place', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const session = {
+    session: {
+      id: 'r1',
+      title: 't',
+      mode: 'code',
+      workspace: '/ws',
+      todos: [],
+      messages: [
+        { role: 'user', content: 'build it' },
+        { role: 'assistant', content: 'done!' },
+        { role: 'assistant', name: 'forge:browser-card', content: JSON.stringify({ url: 'http://localhost:3000/app', title: 'My App', viewport: '1280x900', imageId: 'img-frame' }) },
+        { role: 'user', name: 'forge:screenshot', content: '[screenshot] http://localhost:3000/app · 1280x900', images: ['img-shot1'] },
+      ],
+    },
+    active: false,
+  };
+  const fetchStub = async (url) => (String(url).includes('/api/session?') ? { ok: true, status: 200, json: async () => session } : null);
+  const app = await bootApp({ fetchStub });
+  const findAll = (node, cls, out = []) => {
+    if (node.className && String(node.className).split(' ').includes(cls)) out.push(node);
+    for (const c of node.children || []) findAll(c, cls, out);
+    return out;
+  };
+  try {
+    await app.api.openSession('r1');
+    await new Promise((r) => setTimeout(r, 120));
+    const msgs = app.els.get('#messages');
+    const cards = findAll(msgs, 'browser-card');
+    assert.equal(cards.length, 1, 'stored card rendered');
+    assert.ok(cards[0].texts().some((t) => /localhost:3000 · Closed/.test(t)), 'card shows Closed');
+    assert.ok(cards[0].texts().some((t) => /My App/.test(t)), 'card title');
+    const figs = findAll(msgs, 'shot-figure');
+    assert.equal(figs.length, 1, 'screenshot rendered from stored message');
+    assert.ok(figs[0].texts().some((t) => /http:\/\/localhost:3000\/app · 1280x900/.test(t)), 'caption in place');
+  } finally {
+    app.done();
+  }
+});

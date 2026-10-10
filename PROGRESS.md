@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 4: images + invisible local browser
 
 ## Current status
-- Branch: `main` — Phase 4 start (Phase 3 shipped as v3.0.0; reasoning-Off fix merged)
-- Doing: writing the Phase 4 plan
-- Half-done: nothing yet
-- Baseline: v3.0.0 — 174 tests green
+- Branch: `feat/browser-card` — Phase 4 §4 done; next: §5 visual check loop
+- Doing: browser card + inline screenshots shipped (§4); fake-CDP tests tracked in §8
+- Half-done: nothing
+- Baseline: v3.0.0 — 174 tests green (now 198)
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -128,15 +128,15 @@ local test pages; the live model server is never called during development.
 - [x] Per-tool enable/disable policy honored; tool absent in Chat mode
 
 ## 4. Browser card + inline screenshots in chat (`feat/browser-card`)
-- [ ] Browser card on first page open of a turn: live preview image on top; below it
+- [x] Browser card on first page open of a turn: live preview image on top; below it
       page title, subtitle "host:port · Live"/"· Closed", "Open" button, ⋮ menu
       (Copy URL, Open in my browser)
-- [ ] One card per browser session per turn, updated in place (no card per action)
-- [ ] "Open" opens the side panel (section 6) for real-time watching
-- [ ] Screenshots inline in the chat where taken (real image, caption URL + viewport,
+- [x] One card per browser session per turn, updated in place (no card per action)
+- [x] "Open" opens the side panel (section 6) for real-time watching
+- [x] Screenshots inline in the chat where taken (real image, caption URL + viewport,
       click to enlarge)
-- [ ] Agent narrates 1–2 lines after each screenshot (prompt + rendering)
-- [ ] Reopening an old conversation: card shown (last frame, "Closed") + screenshots in
+- [x] Agent narrates 1–2 lines after each screenshot (prompt + rendering)
+- [x] Reopening an old conversation: card shown (last frame, "Closed") + screenshots in
       place; look matches reference/claude-browser-card.png if present, else adapted to
       Halo's theme incl. dark mode
 

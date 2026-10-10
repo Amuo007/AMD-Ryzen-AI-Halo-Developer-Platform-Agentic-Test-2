@@ -58,7 +58,7 @@ export async function browserTool(ctx, args = {}) {
         const shot = await page.screenshot({ full });
         const saved = saveImage({ dataUrl: `data:image/jpeg;base64,${shot.data}`, conversationId, source: 'screenshot', width: page.viewport.width, height: full ? 0 : page.viewport.height });
         ctx.emit({ type: 'browser_screenshot', imageId: saved.id, url: page.url, title: page.title, viewport: `${page.viewport.width}x${page.viewport.height}`, full });
-        return ok(`Screenshot taken (${full ? 'full page' : 'viewport'}, ${page.viewport.width}x${page.viewport.height}). The image is attached for you to look at.`, { screenshot: saved.id });
+        return ok(`Screenshot taken (${full ? 'full page' : 'viewport'}, ${page.viewport.width}x${page.viewport.height}). The image is attached for you to look at.`, { screenshot: saved.id, shot: { url: page.url, viewport: `${page.viewport.width}x${page.viewport.height}` } });
       }
       case 'snapshot': {
         const snap = await page.snapshot();

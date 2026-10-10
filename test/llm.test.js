@@ -212,13 +212,13 @@ test('reasoning control maps to real request parameters', async () => {
     assert.ok(!('chat_template_kwargs' in auto), 'auto sends no thinking overrides');
     assert.ok(!('reasoning_effort' in auto));
     const off = await call('off');
-    assert.deepEqual(off.chat_template_kwargs, { thinking: false });
+    assert.deepEqual(off.chat_template_kwargs, { enable_thinking: false, thinking: false }, 'off sends both thinking keys (Qwen reads enable_thinking, others read thinking)');
     assert.ok(!('reasoning_effort' in off));
     const low = await call('low');
-    assert.deepEqual(low.chat_template_kwargs, { thinking: true });
+    assert.deepEqual(low.chat_template_kwargs, { enable_thinking: true, thinking: true });
     assert.equal(low.reasoning_effort, 'low');
     const high = await call('high');
-    assert.deepEqual(high.chat_template_kwargs, { thinking: true });
+    assert.deepEqual(high.chat_template_kwargs, { enable_thinking: true, thinking: true });
     assert.ok(!('reasoning_effort' in high), 'high relies on the template default effort (templates define their own effort vocabularies)');
   } finally {
     await mock.close();

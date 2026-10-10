@@ -51,16 +51,21 @@ export async function streamChatCompletion({
     stream_options: { include_usage: true },
   };
   if (tools?.length) body.tools = tools;
+  // Thinking on/off + reasoning effort. Different chat templates look at
+  // different keys: Qwen/GLM-style templates read chat_template_kwargs.enable_thinking,
+  // others read chat_template_kwargs.thinking. Templates ignore kwargs they don't
+  // understand, so we send BOTH names and each model picks up the one it knows.
+  // (`auto` sends nothing and lets the template decide.)
   if (reasoning === 'off') {
-    body.chat_template_kwargs = { thinking: false };
+    body.chat_template_kwargs = { enable_thinking: false, thinking: false };
   } else if (reasoning === 'low') {
-    body.chat_template_kwargs = { thinking: true };
+    body.chat_template_kwargs = { enable_thinking: true, thinking: true };
     body.reasoning_effort = 'low';
   } else if (reasoning === 'high') {
-    // thinking on, effort left to the model/template default: reasoning templates
+    // thinking on, effort left to the template default: reasoning templates
     // define their own effort vocabularies (e.g. xhigh/medium/low) and reject
-    // OpenAI-style "high" values outright
-    body.chat_template_kwargs = { thinking: true };
+    // the OpenAI-style "high" value outright.
+    body.chat_template_kwargs = { enable_thinking: true, thinking: true };
   }
 
   let lastError = null;

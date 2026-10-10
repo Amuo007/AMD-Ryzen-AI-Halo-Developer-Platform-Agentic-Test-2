@@ -246,7 +246,7 @@ check('MCP tool call round-trips', mcpEnd?.status === 'ok' && String(mcpEnd.resu
 // 10. reasoning control reaches the API body
 await runTurn({ sessionId: 'smoke-reason', workspace: ws, mode: 'full', reasoning: 'off', message: 'answer directly' }, () => ({ chunks: [...textChunks('no thinking'), deltaChunk({}, 'stop')] }));
 const reasonReq = mock.requests.at(-1);
-check('reasoning off → chat_template_kwargs.thinking=false', JSON.stringify(reasonReq.chat_template_kwargs) === '{"thinking":false}');
+check('reasoning off → chat_template_kwargs {enable_thinking:false,thinking:false}', JSON.stringify(reasonReq.chat_template_kwargs) === JSON.stringify({ enable_thinking: false, thinking: false }));
 
 // 11. prompt file override per workspace
 await fsp.writeFile(path.join(ws, '.forge', 'system.md'), 'You are HALO-SMOKE-PROMPT.\n');

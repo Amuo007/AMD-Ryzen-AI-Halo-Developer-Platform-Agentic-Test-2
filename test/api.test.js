@@ -507,7 +507,7 @@ test('reasoning: per-conversation control reaches the API request', async () => 
   assert.equal(r.data.reasoning, 'low');
   const untilEnd = (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true);
   await sseCollect({ sessionId, until: untilEnd });
-  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { thinking: true });
+  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { enable_thinking: true, thinking: true });
   assert.equal(mock.requests.at(-1).reasoning_effort, 'low');
   const s = await req('GET', `/api/session?sessionId=${sessionId}`);
   assert.equal(s.data.session.reasoning, 'low');
@@ -520,7 +520,7 @@ test('reasoning: per-conversation control reaches the API request', async () => 
   r = await req('POST', '/api/chat', { workspace: ws, sessionId, message: 'stop thinking', mode: 'full', reasoning: 'off' });
   assert.equal(r.data.reasoning, 'off');
   await sseCollect({ sessionId, until: (ev) => ev.type === 'turn_end' && ((untilEnd.__done = true), true) });
-  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { thinking: false });
+  assert.deepEqual(mock.requests.at(-1).chat_template_kwargs, { enable_thinking: false, thinking: false });
 });
 
 test('GET /api/context: breakdown, real usage as ground truth, guards', async () => {

@@ -125,7 +125,7 @@ local test pages; the live model server is never called during development.
       (tool result stays text); only the latest 2 screenshots kept in model context
       (older → "[earlier screenshot removed]"); user-attached images never pruned
 - [x] Every screenshot stored with the conversation (section-1 image storage)
-- [ ] Per-tool enable/disable policy honored; tool absent in Chat mode
+- [x] Per-tool enable/disable policy honored; tool absent in Chat mode
 
 ## 4. Browser card + inline screenshots in chat (`feat/browser-card`)
 - [ ] Browser card on first page open of a turn: live preview image on top; below it

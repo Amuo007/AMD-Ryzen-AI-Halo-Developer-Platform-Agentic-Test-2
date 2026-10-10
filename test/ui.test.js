@@ -312,7 +312,7 @@ test('tools tab: html structure + runtime list render', async () => {
 test('reasoning control: select in composer, sent with chat, persisted choice', () => {
   const html = pub('index.html');
   assert.match(html, /id="reasoning-select"/);
-  for (const v of ['auto', 'high', 'low', 'off']) assert.ok(html.includes(`value="${v}"`), `missing option ${v}`);
+  for (const v of ['auto', 'high', 'medium', 'low', 'off']) assert.ok(html.includes(`value="${v}"`), `missing option ${v}`);
   const app = pub('app.js');
   assert.match(app, /reasoning: els\.reasoning\.value/);
   assert.match(app, /forge-reasoning/);

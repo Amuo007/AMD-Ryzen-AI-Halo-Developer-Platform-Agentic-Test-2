@@ -45,7 +45,7 @@ export class Turn {
     this.workspace = workspace;
     this.mode = mode; // permission mode: ask | auto-edit | full
     this.agentMode = agentMode === 'chat' ? 'chat' : 'code'; // conversation kind
-    this.reasoning = ['high', 'low', 'off'].includes(reasoning) ? reasoning : 'auto';
+    this.reasoning = ['high', 'medium', 'low', 'off'].includes(reasoning) ? reasoning : 'auto';
     this.maxSteps = maxSteps;
     this.events = [];
     this.nextEventId = 1;
@@ -161,7 +161,9 @@ export async function runTurn(turn, userMessage) {
 
   const agentsMd = isChat ? null : await loadAgentsMd(turn.workspace);
   const skillsSection = isChat ? null : skillsSectionText(await discoverSkills({ workspace: turn.workspace }));
-  const systemPrompt = isChat ? await buildChatSystemPrompt() : await buildSystemPrompt({ workspace: turn.workspace, agentsMd, skillsSection });
+  const systemPrompt = isChat
+    ? await buildChatSystemPrompt({ model: config.model })
+    : await buildSystemPrompt({ workspace: turn.workspace, agentsMd, skillsSection, model: config.model });
 
   let stepUsage = null;
   let usageCorrection = 0; // real prompt tokens - estimate for the last request (usage is ground truth)
@@ -330,7 +332,7 @@ export async function startTurn({ sessionId, workspace, message, mode, agentMode
   const stored = getConversation(sessionId);
   const convMode = stored ? stored.mode : agentMode === 'chat' ? 'chat' : 'code';
   const isChat = convMode === 'chat';
-  const convReasoning = reasoning && ['auto', 'high', 'low', 'off'].includes(reasoning) ? reasoning : stored?.reasoning ?? 'auto';
+  const convReasoning = reasoning && ['auto', 'high', 'medium', 'low', 'off'].includes(reasoning) ? reasoning : stored?.reasoning ?? 'auto';
   ensureConversation(sessionId, { workspace: isChat ? null : workspace, mode: convMode, reasoning: convReasoning });
   const turn = new Turn({
     id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,

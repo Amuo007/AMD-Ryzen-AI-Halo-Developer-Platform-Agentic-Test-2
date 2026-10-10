@@ -1,10 +1,10 @@
 # PROGRESS.md — Phase 4: images + invisible local browser
 
 ## Current status
-- Branch: `feat/browser-panel` — Phase 4 §6 done; next: §7 better automatic handoff
-- Doing: browser side panel shipped (drag width, viewport switch, error badge, policy)
+- Branch: `feat/mascot-frisbee` — done; next: §7 better automatic handoff
+- Doing: frisbee-throw mascot while a response generates (throw → catch → repeat until done/stopped)
 - Half-done: nothing
-- Baseline: v3.0.0 — 174 tests green (now 203)
+- Baseline: v3.0.0 — 174 tests green (now 204)
 
 ## Legend: [ ] todo · [x] done · [~] in progress
 
@@ -153,6 +153,13 @@ local test pages; the live model server is never called during development.
 - [x] Read-only URL bar; live view via CDP `Page.startScreencast` throttled ~2 fps over
       the existing SSE; status Live/Closed; viewport size switch; console-error badge
 - [x] Browser tool honors per-tool enable/disable policy
+
+## 6.5 Mascot frisbee throw (`feat/mascot-frisbee`)
+- [x] While a response is generating (waiting/thinking/talking) the composer mascot throws
+      his halo like a frisbee: wind-up → fly out spinning + edge-on flip → caught back,
+      looping until the turn ends or is stopped (idle/typing keep the calm halo)
+- [x] Right arm swings the throw (shoulder pivot); reduced-motion still disables everything
+- [x] Tests for the loop, the flight path and the idle/typing exclusion (204 green)
 
 ## 7. Better automatic handoff (`feat/handoff-v2`)
 - [ ] performHandoff sends the same tools list (activeToolList) — cache prefix match;

@@ -92,10 +92,31 @@ test('mascot: SVG art in composer + CSS animations for all 5 states', () => {
   const css = pub('styles.css');
   for (const st of ['idle', 'typing', 'waiting', 'thinking', 'talking'])
     assert.match(css, new RegExp(`#mascot\\[data-state="${st}"\\]`));
-  for (const kf of ['m-breathe', 'm-blink', 'm-trot', 'm-halo-pulse', 'm-dart', 'm-think-tilt', 'm-talk', 'm-ring-travel', 'm-halo-glow'])
+  for (const kf of ['m-breathe', 'm-blink', 'm-trot', 'm-dart', 'm-think-tilt', 'm-talk', 'm-halo-throw', 'm-throw-arm'])
     assert.match(css, new RegExp(`@keyframes ${kf}`));
-  assert.match(css, /data-state="waiting"\] \.m-halo ellipse \{ stroke-dasharray/);
   assert.match(css, /prefers-reduced-motion/);
+});
+
+test('mascot frisbee: halo throws out + back on a loop while the answer generates, stops when idle', () => {
+  const css = pub('styles.css');
+  // throw loop on every generating state
+  for (const st of ['waiting', 'thinking', 'talking']) {
+    assert.match(css, new RegExp(`data-state="${st}"\\] \\.m-halo[^}]*\\{[^}]*m-halo-throw`));
+    assert.match(css, new RegExp(`data-state="${st}"\\] \\.m-arm-r[^}]*\\{[^}]*m-throw-arm`));
+  }
+  // the throw leaves the head and comes back: starts/ends at the head, mid-flight translated out, scale-flipped (frisbee)
+  const kf = css.match(/@keyframes m-halo-throw \{([\s\S]*?)\n\}/);
+  assert.ok(kf, 'm-halo-throw keyframes missing');
+  const body = kf[1];
+  assert.match(body, /0%, 100% \{ transform: translate\(0, 0\)/, 'returns to the head');
+  assert.match(body, /translate\(28px, -14px\)/, 'flies out');
+  assert.match(body, /scale\(1, 0\.3\)/, 'flips edge-on mid-flight');
+  // idle/typing keep calm halos (no throw) so the loop ends with the turn
+  assert.ok(!/#mascot\[data-state="idle"\][^}]*m-halo-throw/.test(css));
+  assert.ok(!/#mascot\[data-state="typing"\][^}]*m-halo-throw/.test(css));
+  // arms pivot from the shoulder; reduced motion still kills everything
+  assert.match(css, /#mascot \.m-halo, #mascot \.m-head[^{]*#mascot \.m-arm \{ transform-box: fill-box/);
+  assert.match(css, /#mascot \.m-arm \{ transform-origin/);
 });
 
 test('runtime: mascot state machine switches with app events', async () => {

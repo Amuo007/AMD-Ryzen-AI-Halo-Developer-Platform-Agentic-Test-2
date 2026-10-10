@@ -42,6 +42,13 @@ const els = {
   browseChoose: $('#browse-choose'),
   mascot: $('#mascot'),
   todoPanel: $('#todo-panel'),
+  attachBtn: $('#attach-btn'),
+  attachInput: $('#attach-input'),
+  attachTray: $('#attach-tray'),
+  lightbox: $('#lightbox'),
+  lightboxImg: $('#lightbox-img'),
+  lightboxCaption: $('#lightbox-caption'),
+  lightboxClose: $('#lightbox-close'),
 };
 
 const SVG = {
@@ -225,10 +232,19 @@ function clearMessages() {
   state.cardsByCallId.clear();
 }
 
-function appendUser(message) {
+function appendUser(message, images = []) {
   finalizeThinking();
   state.assistantEl = null;
-  const wrap = el('div', { class: 'msg msg-user' }, [el('div', { class: 'bubble', text: message })]);
+  const wrap = el('div', { class: 'msg msg-user' });
+  if (message) wrap.appendChild(el('div', { class: 'bubble', text: message }));
+  if (images.length) {
+    const strip = el('div', { class: 'msg-images' });
+    for (const id of images) {
+      const pic = el('img', { class: 'msg-image', src: `/api/images/${encodeURIComponent(id)}`, alt: 'attached image', onclick: () => openLightbox(`/api/images/${encodeURIComponent(id)}`, 'Attached image') });
+      strip.appendChild(pic);
+    }
+    wrap.appendChild(strip);
+  }
   els.messages.appendChild(wrap);
   scrollTop();
 }
@@ -468,7 +484,7 @@ function openFileDiff(f) {
 function renderEvent(ev) {
   switch (ev.type) {
     case 'user':
-      appendUser(ev.message);
+      appendUser(ev.message, ev.images || []);
       break;
     case 'reasoning_delta':
       setMascotState('thinking');
@@ -954,7 +970,7 @@ async function openSession(id) {
   clearMessages();
   renderTodos(session.todos);
   for (const m of session.messages) {
-    if (m.role === 'user') appendUser(m.content);
+    if (m.role === 'user') appendUser(m.content || '', m.images || []);
     else if (m.role === 'assistant') {
       if (m.name === 'forge:handoff') {
         renderHandoff(m.content);
@@ -1031,7 +1047,8 @@ function setRunning(running) {
 
 async function send() {
   const message = els.input.value.trim();
-  if (!message) return;
+  const pendingIds = state$.pending.map((i) => i.id);
+  if (!message && !pendingIds.length) return;
   if (state.agentMode === 'code') {
     const ws = els.workspace.value.trim();
     if (!ws) {
@@ -1050,6 +1067,8 @@ async function send() {
   clearTimeout(mascot.typingTimer);
   setMascotState('waiting');
   state.lastUserMessage = message;
+  const images = pendingIds;
+  clearPendingImages();
   try {
     await api('POST', '/api/chat', {
       sessionId: state.sessionId,
@@ -1058,6 +1077,7 @@ async function send() {
       workspace: state.agentMode === 'code' ? els.workspace.value.trim() : undefined,
       mode: els.modeSelect.value,
       reasoning: els.reasoning.value,
+      images,
     });
     setStatusError('');
   } catch (err) {
@@ -1299,6 +1319,9 @@ async function openSettings() {
   $('#set-model').value = cfg.model;
   $('#set-maxsteps').value = cfg.maxSteps;
   $('#set-contextlimit').value = cfg.contextLimit;
+  $('#set-images').checked = cfg.modelSupportsImages !== false;
+  $('#set-tokenbudget').value = cfg.sessionTokenBudget || 1000000;
+  $('#set-browser-path').value = cfg.browserPath || '';
   $('#set-apikey').value = '';
   $('#set-apikey-hint').textContent = cfg.hasApiKey ? `current: ${cfg.apiKeyMasked} (leave empty to keep)` : 'no key set';
   $('#settings-msg').textContent = '';
@@ -1308,7 +1331,7 @@ async function openSettings() {
 async function saveSettings(e) {
   if (e.submitter && e.submitter.value !== 'save') return;
   e.preventDefault();
-  const patch = { baseURL: $('#set-baseurl').value.trim(), model: $('#set-model').value.trim(), maxSteps: Number($('#set-maxsteps').value) || 50, contextLimit: Number($('#set-contextlimit').value) || 100000 };
+  const patch = { baseURL: $('#set-baseurl').value.trim(), model: $('#set-model').value.trim(), maxSteps: Number($('#set-maxsteps').value) || 50, contextLimit: Number($('#set-contextlimit').value) || 100000, modelSupportsImages: $('#set-images').checked === true, sessionTokenBudget: Number($('#set-tokenbudget').value) || 1000000, browserPath: $('#set-browser-path').value.trim() };
   const key = $('#set-apikey').value;
   if (key) patch.apiKey = key;
   try {
@@ -1324,6 +1347,7 @@ async function setStatusModel() {
   const cfg = await api('GET', '/api/config');
   state.modelName = cfg.model;
   els.topModel.textContent = cfg.model;
+  applyVisionSetting(cfg);
 }
 async function checkLlm() {
   const dot = els.llmStatus;
@@ -1345,6 +1369,139 @@ async function checkLlm() {
     dot.textContent = '●';
     dot.className = 'status-llm llm-bad';
   }
+}
+
+/* ---------------- images ---------------- */
+
+const MAX_IMAGES = 5;
+const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+const MAX_EDGE = 1568;
+const state$ = { pending: [], visionOn: true };
+
+/** Downscale a file with a canvas to MAX_EDGE long edge and return a data URL. */
+async function downscaleToDataUrl(file) {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
+  const tw = Math.max(1, Math.round(bitmap.width * scale));
+  const th = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = tw;
+  canvas.height = th;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(bitmap, 0, 0, tw, th);
+  if (bitmap.close) bitmap.close();
+  const outType = file.type === 'image/png' || file.type === 'image/gif' ? 'image/png' : file.type;
+  return { dataUrl: canvas.toDataURL(outType, 0.88), width: tw, height: th };
+}
+
+function imageTypeError(name) {
+  setStatusError(`"${name}": only PNG, JPEG, WebP and GIF images can be attached.`);
+}
+
+/** Accept a File (browser) or a data-URL string (tests) into the pending tray. */
+async function addImageFile(item, name = '') {
+  if (!state$.visionOn) {
+    setStatusError('Image support is off in Settings → enable “Model supports images”.');
+    return;
+  }
+  if (state$.pending.length >= MAX_IMAGES) {
+    setStatusError(`You can attach up to ${MAX_IMAGES} images per message.`);
+    return;
+  }
+  let dataUrl = null;
+  let width = 0;
+  let height = 0;
+  try {
+    if (typeof item === 'string') {
+      if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(item)) return imageTypeError(name || 'pasted file');
+      dataUrl = item;
+    } else {
+      if (!ALLOWED_IMAGE_TYPES.includes(item.type)) return imageTypeError(item.name || name || 'file');
+      ({ dataUrl, width, height } = await downscaleToDataUrl(item));
+    }
+  } catch (err) {
+    setStatusError(`Could not read image: ${err.message}`);
+    return;
+  }
+  setStatusError('');
+  let uploaded;
+  try {
+    uploaded = await api('POST', '/api/images', { sessionId: state.sessionId, source: 'user', data: dataUrl, width, height });
+  } catch (err) {
+    setStatusError(`Upload failed: ${err.message}`);
+    return;
+  }
+  state$.pending.push({ id: uploaded.id, url: uploaded.url, preview: dataUrl, width: uploaded.width || width, height: uploaded.height || height });
+  renderAttachTray();
+}
+
+function renderAttachTray() {
+  if (!els.attachTray) return;
+  els.attachTray.innerHTML = '';
+  for (const img of state$.pending) {
+    const fig = el('div', { class: 'attach-thumb' });
+    const pic = el('img', { class: 'attach-preview', src: img.preview, alt: '' });
+    const rm = el('button', { class: 'attach-remove', title: 'Remove', 'aria-label': 'Remove image', text: '×', onclick: () => { state$.pending = state$.pending.filter((x) => x !== img); renderAttachTray(); } });
+    fig.appendChild(pic);
+    fig.appendChild(rm);
+    els.attachTray.appendChild(fig);
+  }
+  els.attachTray.classList.toggle('hidden', !state$.pending.length);
+}
+
+function clearPendingImages() {
+  state$.pending = [];
+  renderAttachTray();
+}
+
+function openLightbox(src, caption = '') {
+  if (!els.lightbox) return;
+  els.lightboxImg.src = src;
+  els.lightboxCaption.textContent = caption;
+  els.lightbox.showModal();
+}
+
+function wireImageEvents() {
+  els.attachBtn.addEventListener('click', () => els.attachInput.click());
+  els.attachInput.addEventListener('change', () => {
+    for (const f of [...(els.attachInput.files || [])]) addImageFile(f, f.name || '');
+    els.attachInput.value = '';
+  });
+  els.input.addEventListener('paste', (e) => {
+    const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+    if (!files.length) return;
+    e.preventDefault();
+    for (const f of files) addImageFile(f, f.name || 'pasted image');
+  });
+  const dropTargets = [els.main, els.messages];
+  for (const target of dropTargets) {
+    target.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      target.classList.add('drag-over');
+    });
+    target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
+    target.addEventListener('drop', (e) => {
+      e.preventDefault();
+      target.classList.remove('drag-over');
+      const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+      for (const f of files) addImageFile(f, f.name || 'dropped image');
+    });
+  }
+  els.lightbox.addEventListener('click', (e) => {
+    if (e.target === els.lightbox || e.target === els.lightboxClose) els.lightbox.close();
+  });
+}
+
+function applyVisionSetting(cfg) {
+  state$.visionOn = cfg.modelSupportsImages !== false;
+  if (els.attachBtn) {
+    els.attachBtn.disabled = !state$.visionOn;
+    els.attachBtn.title = state$.visionOn ? 'Attach images (PNG/JPEG/WebP/GIF, max 5)' : 'Image support is off — enable it in Settings → General';
+  }
+}
+
+function imageStripHtml(ids) {
+  return (ids || []).map((id) => `<img src="/api/images/${encodeURIComponent(id)}" class="msg-image" alt="attached image" />`).join('');
 }
 
 /* ---------------- init ---------------- */
@@ -1408,6 +1565,7 @@ async function init() {
   });
   els.messages.addEventListener('scroll', () => els.scrollBtn.classList.toggle('hidden', isAtBottom()));
   els.scrollBtn.addEventListener('click', scrollTop);
+  wireImageEvents();
   $('#ctx-meter')?.addEventListener('click', () => toggleCtxPopup());
   document.addEventListener('click', (e) => {
     if (!ctxPopupOpen) return;
@@ -1451,4 +1609,4 @@ async function init() {
 init();
 
 /* test handle — used by the headless UI tests (test/helpers/domstub.mjs) */
-globalThis.__forge = { state, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos };
+globalThis.__forge = { state, state$, els, renderEvent, send, newChat, openSession, setMascotState, mascot, openSettingsTab, renderTodos, addImageFile, renderAttachTray, openLightbox, applyVisionSetting };

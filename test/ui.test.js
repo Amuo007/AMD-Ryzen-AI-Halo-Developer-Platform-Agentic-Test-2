@@ -388,3 +388,89 @@ test('thinking loader: halo SVG spins while reasoning, static when done', () => 
   assert.match(app, /haloIconSvg\('halo-spin'\)/, 'spinner halo while thinking');
   assert.match(app, /think-ico[\s\S]{0,80}haloIconSvg/);
 });
+
+/* ---------------- image input (section 1) ---------------- */
+
+test('image input UI: attach button, file input, tray, lightbox in markup', () => {
+  const html = pub('index.html');
+  assert.match(html, /id="attach-btn"/);
+  assert.match(html, /id="attach-input"[^>]*multiple/);
+  assert.match(html, /accept="image\/png,image\/jpeg,image\/webp,image\/gif"/);
+  assert.match(html, /id="attach-tray"/);
+  assert.match(html, /id="lightbox"/);
+});
+
+test('paste / attach-change / drop enqueue uploaded images into the tray', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const uploads = [];
+  const fetchStub = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('/api/images')) {
+      const b = JSON.parse(opts.body);
+      const id = `img-${uploads.length}`;
+      uploads.push({ id, data: b.data, source: b.source });
+      return { ok: true, status: 201, json: async () => ({ id, url: `/api/images/${id}`, mime: 'image/png', width: 0, height: 0 }) };
+    }
+    return null;
+  };
+  const app = await bootApp({ fetchStub });
+  try {
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgZmQAAAMAAOZ9A5cAAAAASUVORK5CYII=';
+    // paste
+    app.fire(app.els.get('#input'), 'paste', { clipboardData: { files: [png] } });
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(app.api.state$.pending.length, 1, 'paste added one');
+    // attach input change
+    const fileInput = app.els.get('#attach-input');
+    fileInput.files = [png];
+    app.fire(fileInput, 'change');
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(app.api.state$.pending.length, 2, 'attach change added one');
+    // drop on the chat
+    app.fire(app.els.get('#messages'), 'drop', { dataTransfer: { files: [png] } });
+    await new Promise((r) => setTimeout(r, 50));
+    assert.equal(app.api.state$.pending.length, 3, 'drop added one');
+    // an unsupported type is rejected
+    const before = uploads.length;
+    await app.api.addImageFile('data:application/pdf;base64,AAAA', 'doc.pdf');
+    assert.equal(app.api.state$.pending.length, 3, 'bad type rejected');
+    assert.equal(uploads.length, before, 'bad type never uploaded');
+    // max 5 enforced
+    for (let i = 0; i < 4; i++) await app.api.addImageFile(png);
+    assert.equal(app.api.state$.pending.length, 5, 'capped at 5');
+    await app.api.addImageFile(png);
+    assert.equal(app.api.state$.pending.length, 5, 'still capped at 5');
+    assert.ok(uploads.length >= 5);
+    // send includes the ids, then clears the tray
+    app.els.get('#input').value = 'look at these';
+    let chatBody = null;
+    const inner = app.sandbox.fetch;
+    app.sandbox.fetch = async (url, opts) => {
+      if (String(url).includes('/api/chat')) chatBody = JSON.parse(opts.body);
+      return inner(url, opts);
+    };
+    await app.api.send();
+    await new Promise((r) => setTimeout(r, 80));
+    assert.ok(chatBody, 'chat sent');
+    assert.equal(chatBody.images.length, 5);
+    assert.equal(app.api.state$.pending.length, 0, 'tray cleared after send');
+  } finally {
+    app.done();
+  }
+});
+
+test('vision-off: attach button disabled + tooltip, paste rejected', async () => {
+  const { bootApp } = await import('./helpers/domstub.mjs');
+  const fetchStub = async (url) => (String(url).includes('/api/config') ? { ok: true, status: 200, json: async () => ({ baseURL: 'x', model: 'm', maxSteps: 50, contextLimit: 100000, modelSupportsImages: false, hasApiKey: false }) } : null);
+  const app = await bootApp({ fetchStub });
+  try {
+    const btn = app.els.get('#attach-btn');
+    assert.equal(btn.disabled, true, 'attach disabled');
+    assert.match(btn.title, /Settings/);
+    const png = 'data:image/png;base64,AAAA';
+    await app.api.addImageFile(png);
+    assert.equal(app.api.state$.pending.length, 0, 'vision off: nothing enqueued');
+  } finally {
+    app.done();
+  }
+});

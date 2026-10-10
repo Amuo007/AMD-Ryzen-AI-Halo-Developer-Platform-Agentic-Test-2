@@ -4,6 +4,7 @@ const $ = (sel) => document.querySelector(sel);
 const els = {
   app: $('#app'),
   menuBtn: $('#menu-btn'),
+  collapseBtn: $('#collapse-btn'),
   navScrim: $('#nav-scrim'),
   messages: $('#messages'),
   input: $('#input'),
@@ -160,6 +161,19 @@ function setNavOpen(open) {
   els.app.classList.toggle('nav-open', open);
   els.menuBtn.setAttribute('aria-expanded', String(open));
   els.menuBtn.title = open ? 'Close menu' : 'Open menu';
+}
+
+/* ---------------- desktop sidebar collapse ---------------- */
+
+function isNarrow() {
+  return ((document.documentElement && document.documentElement.clientWidth) || 0) <= 860;
+}
+function isSideCollapsed() {
+  return els.app.classList.contains('side-collapsed');
+}
+function setSideCollapsed(collapsed) {
+  els.app.classList.toggle('side-collapsed', collapsed);
+  localStorage.setItem('forge-side-collapsed', collapsed ? '1' : '0');
 }
 
 /* ---------------- mascot ---------------- */
@@ -1210,14 +1224,14 @@ function renderWelcome() {
   els.messages.innerHTML = '';
   if (state.agentMode === 'chat') {
     const w = el('div', { class: 'welcome centered' }, [
-      el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `Good ${greetingWord()}, ${els.userName.textContent || 'there'}` })]),
+      el('h1', { class: 'greeting' }, [el('span', { class: 'burst', html: haloIconSvg('') }), el('span', { text: `Good ${greetingWord()}, ${els.userName.textContent || 'there'}` })]),
     ]);
     els.messages.appendChild(w);
     return;
   }
   const name = displayName();
   const w = el('div', { class: 'welcome' });
-  w.appendChild(el('h1', { class: 'greeting' }, [el('span', { class: 'burst', text: '✳' }), el('span', { text: `What's up next${name ? ', ' + name : ''}?` })]));
+  w.appendChild(el('h1', { class: 'greeting' }, [el('span', { class: 'burst', html: haloIconSvg('') }), el('span', { text: `What's up next${name ? ', ' + name : ''}?` })]));
   const card = el('div', { class: 'stats-card' });
   const tabs = el('div', { class: 'stats-tabs' }, [
     el('button', { class: 'stats-tab' + (state.statsTab === 'overview' ? ' active' : ''), text: 'Overview', onclick: () => setStatsTab('overview') }),
@@ -1965,7 +1979,12 @@ async function init() {
   els.workspace.value = localStorage.getItem('forge-workspace') || '';
 
   els.themeToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
-  els.menuBtn.addEventListener('click', () => setNavOpen(!state.navOpen));
+  els.menuBtn.addEventListener('click', () => {
+    if (isNarrow()) setNavOpen(!state.navOpen);
+    else setSideCollapsed(false);
+  });
+  if (els.collapseBtn) els.collapseBtn.addEventListener('click', () => setSideCollapsed(true));
+  if (localStorage.getItem('forge-side-collapsed') === '1') els.app.classList.add('side-collapsed');
   els.navScrim.addEventListener('click', () => setNavOpen(false));
   els.send.addEventListener('click', send);
   els.stop.addEventListener('click', stop);
